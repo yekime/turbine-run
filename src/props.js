@@ -45,6 +45,7 @@ export function createGantry(T, text = 'SLAINTE', color = NEON.green) {
     sign.position.set(0, 5.45, -.32); sign.rotation.y = 0; g.add(sign);
     box(g, steel, [6.6, 1.35, .2], [0, 5.45, -.18]);
   }
+  g.userData = { tube, warm, base: { tube: tube.emissiveIntensity, warm: warm.emissiveIntensity } };
   return g;
 }
 

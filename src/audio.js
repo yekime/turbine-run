@@ -137,6 +137,7 @@ export function createAudio() {
       else if (kind === 'slam') { tone('sine', 110, 28, .5, .7, t); hiss(.5, .5, 1200, 90, 'lowpass', t); }
       else if (kind === 'smash') { tone('square', 300, 60, .25, .25, t); hiss(.3, .35, 3000, 400, 'bandpass', t); tone('sine', NOTE(79), NOTE(91), .15, .08, t + .05); }
       else if (kind === 'boost') { hiss(1.2, .6, 200, 4000, 'bandpass', t); tone('sawtooth', 60, 220, 1, .3, t); }
+      else if (kind === 'gate') { hiss(.5, .35, 500, 5000, 'bandpass', t); [76, 83, 88].forEach((m, i) => tone('square', NOTE(m), 0, .12, .08, t + i * .05)); }
       else if (kind === 'flip') hiss(.35, .2, 3000, 500, 'bandpass', t);
       else if (kind === 'bump') tone('square', 200, 90, .12, .2, t);
       else if (kind === 'slamdoor') { tone('square', 140, 60, .12, .35, t); hiss(.1, .3, 2000, 500, 'bandpass', t); }

@@ -24,6 +24,7 @@ Serve this directory with `python3 -m http.server 8080`, then visit `http://loca
 - Blade transporters have a ramp at the back: drive straight up and ride the blade. Bonus pints run along the top.
 - Tankers have no ramp. Driving into the back costs bodywork. Jump onto them instead.
 - You can't steer into the side of a truck; the car bumps off it.
+- Every neon gate you drive through adds 3.2 mph for the rest of the run, 19 gates in all; they heat from green to cyan, orange and pink as you speed up.
 - Three hits end the run.
 
 Sound starts at the first tap or key press. The music is "The Irish Washerwoman", a traditional jig, synthesised live as a synthwave jig; the transcription is the [thesession.org setting by Aaron Bergen](https://thesession.org/tunes/92#setting47183).

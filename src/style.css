@@ -45,6 +45,7 @@ h1 span{display:block;font-size:1.25em;letter-spacing:-4px;background:linear-gra
 .speed small{font-size:11px;letter-spacing:2px;color:var(--c)}
 .speed.hot b{color:#ffe0b0;text-shadow:0 0 12px var(--o),0 0 34px var(--o);animation:flicker .12s steps(2) infinite}.speed.hot small{color:var(--o)}
 @keyframes flicker{50%{opacity:.82}}
+.speed.gate b{animation:gatepop .45s ease-out}@keyframes gatepop{30%{transform:scale(1.35);color:#d9fff0;text-shadow:0 0 18px var(--g),0 0 40px var(--g)}}
 .jet{position:absolute;right:16px;bottom:max(18px,env(safe-area-inset-bottom));width:74px;height:74px;border-radius:50%;pointer-events:auto;display:grid;place-items:center;
   background:radial-gradient(circle,rgba(26,11,51,.75) 55%,rgba(26,11,51,.35));border:2px solid rgba(63,243,255,.35);opacity:.6;transition:opacity .2s}
 .jet svg{width:28px;height:28px;color:rgba(255,255,255,.55)}

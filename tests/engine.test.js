@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, course, step, steer, jump, slam, boost, speed, surface, carZ, LENGTH, JUMP_APEX, CLEARANCE, DECK, RAMP } from '../src/engine.js';
+import { createGame, course, step, steer, jump, slam, boost, speed, surface, carZ, LENGTH, GATE_BOOST, JUMP_APEX, CLEARANCE, DECK, RAMP } from '../src/engine.js';
 
 const playing = seed => { const g = createGame(seed); g.mode = 'playing'; return g; };
-const clear = g => { g.events = []; g.platforms = []; return g; };
+const clear = g => { g.events = []; g.platforms = []; g.gates = []; return g; };
 function runFor(g, seconds, hz) { const n = Math.round(seconds * hz); for (let i = 0; i < n; i++) step(g, 1 / hz); }
 
 test('pint fuels a manually activated boost', () => {
@@ -62,8 +62,11 @@ test('invulnerability protects consecutive impacts; three separate hits end the 
   assert.equal(h.mode, 'lost');
 });
 test('course finishes and freezes', () => { const g = clear(playing()); g.distance = LENGTH - 1; step(g, .05); assert.equal(g.mode, 'won'); step(g, .05); assert.equal(g.distance, LENGTH); });
-test('difficulty increases speed and row density', () => {
-  const g = createGame(); const initial = speed(g); g.distance = LENGTH * .9; assert(speed(g) > initial + 30);
+test('each neon gate adds speed for the rest of the run; rows tighten', () => {
+  const g = clear(playing()); g.gates = [carZ(g) + 2, carZ(g) + 30]; const initial = speed(g);
+  const sounds = step(g, .05); assert(sounds.includes('gate')); assert.equal(g.gatesPassed, 1); assert.equal(speed(g), initial + GATE_BOOST);
+  runFor(g, 1, 60); assert.equal(g.gatesPassed, 2); assert.equal(speed(g), initial + 2 * GATE_BOOST);
+  const full = createGame(); assert(full.gates.length * GATE_BOOST > 30, 'gates add at least 30 mph over the run');
   const zs = [...new Set(course().events.filter(e => !e.bonus).map(e => e.z))]; assert(zs.at(-1) - zs.at(-2) < zs[1] - zs[0]);
 });
 test('identical results at 30, 60 and 120 Hz', () => {

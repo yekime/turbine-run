@@ -217,8 +217,14 @@ export function createRenderer(canvas) {
   const shamrocks = []; for (let i = 0; i < 6; i++) { const s = createShamrock(THREE); s.scale.setScalar(1.15); shamrocks.push(add(s, -i * 37 - 30, 'shamrock', (i % 2 ? -1 : 1) * 8.6)); }
   for (let i = 0; i < 2; i++) add(batchStatic(THREE, createRoundTower(THREE)), -i * 130 - 90, 'tower', (i ? 1 : -1) * 34);
   const grazers = []; for (let i = 0; i < 8; i++) { const a = batchStatic(THREE, (i % 2 ? createSheep : createCow)(THREE), []); a.rotation.y = noise(i) * 6; grazers.push(add(a, -i * 23 - 14, 'grazer', (i % 2 ? 1 : -1) * (10 + noise(i + 4) * 6), { phase: i })); }
-  const gantryText = [['SLAINTE', NEON.green], ['88 MPH', NEON.orange], ['CRAIC AHEAD', NEON.pink], ['MIND THE SHEEP', NEON.cyan]];
-  gantryText.forEach(([text, c], i) => add(createGantry(THREE, text, c), -i * 75 - 55, 'gantry', 0));
+  // Speed gates come from the engine. The pool cycles signs; colour heats up as the run gets faster.
+  const GATE_SIGNS = ['SLAINTE', 'CRAIC AHEAD', 'MIND THE SHEEP', 'FASTER', '88 MPH', 'LAST ORDERS'];
+  const GATE_COLOURS = [NEON.green, NEON.green, NEON.cyan, NEON.orange, NEON.pink];
+  const gateCache = new Map(); const gatePool = new Map(); let gateFlash = 0, previousGates = 0;
+  const gateObject = i => { const tier = Math.min(GATE_COLOURS.length - 1, Math.floor(i / 4)), key = (i % GATE_SIGNS.length) + ':' + tier;
+    if (!gateCache.has(key)) { const o = createGantry(THREE, GATE_SIGNS[i % GATE_SIGNS.length], GATE_COLOURS[tier]); o.visible = false; scene.add(o); gateCache.set(key, []); gateCache.get(key).push(o); }
+    const free = gateCache.get(key).find(o => !o.userData.inUse); if (free) { free.userData.inUse = true; return free; }
+    const o = createGantry(THREE, GATE_SIGNS[i % GATE_SIGNS.length], GATE_COLOURS[tier]); scene.add(o); o.userData.inUse = true; gateCache.get(key).push(o); return o; };
   const SPAN = 300;
 
   // --- The car --------------------------------------------------------------
@@ -313,7 +319,7 @@ export function createRenderer(canvas) {
     if (!paused) elapsed += dt;
     const t = clamp(g.introTime || 0, 0, 3);
     if (g.mode !== previousMode) { if (g.mode === 'intro') { slamDone = leapDone = launchDone = false; introTravel = 0; introVelocity = 0; } previousMode = g.mode; }
-    if (eventSource !== g.events) { eightyEight = false; for (const o of events.values()) release(o.object); events.clear(); for (const o of trucks.values()) release(o); trucks.clear(); eventSource = g.events; previousPints = g.pints; previousHits = g.hits; previousLandings = g.landings; previousFlips = g.flips; previousBumps = g.bumps; landing = 0; previousJump = false; flipAge = 9; }
+    if (eventSource !== g.events) { eightyEight = false; for (const o of events.values()) release(o.object); events.clear(); for (const o of trucks.values()) release(o); trucks.clear(); for (const o of gatePool.values()) { o.visible = false; o.userData.inUse = false; } gatePool.clear(); previousGates = g.gatesPassed; eventSource = g.events; previousPints = g.pints; previousHits = g.hits; previousLandings = g.landings; previousFlips = g.flips; previousBumps = g.bumps; landing = 0; previousJump = false; flipAge = 9; }
 
     const boosting = g.boost > 0;
     const unitSpeed = parked ? 0 : engineSpeed(g);
@@ -360,6 +366,19 @@ export function createRenderer(canvas) {
       dummy.position.set(s.x, s.y, s.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, streakLen); dummy.updateMatrix(); streaks.setMatrixAt(i, dummy.matrix); }
     streaks.instanceMatrix.needsUpdate = true;
 
+    // Speed gates at their real course positions; the one you just passed flares.
+    const liveGates = new Set();
+    g.gates.forEach((z, i) => {
+      const ahead = (z - carZ(g)) * SCALE; if (ahead > 190 || ahead < -25) return;
+      liveGates.add(i); let o = gatePool.get(i); if (!o) { o = gateObject(i); gatePool.set(i, o); }
+      o.visible = true; o.position.set(0, 0, -ahead);
+      const hot = i === g.gatesPassed - 1 ? gateFlash : 0;
+      o.userData.tube.emissiveIntensity = o.userData.base.tube * (1 + hot * 3); o.userData.warm.emissiveIntensity = o.userData.base.warm * (1 + hot * 2);
+    });
+    for (const [i, o] of gatePool) if (!liveGates.has(i)) { o.visible = false; o.userData.inUse = false; gatePool.delete(i); }
+    if (g.gatesPassed > previousGates && !parked) { gateFlash = 1; fovKick = Math.max(fovKick, .75); shake(.28); kick(.3, -1.4); cues.push('gate'); for (let i = 0; i < 40; i++) { const a = Math.random() * Math.PI * 2; fx.emit(Math.cos(a) * 6.4, 3.3 + Math.sin(a) * 3, -.5, Math.cos(a) * -4, Math.sin(a) * -3, 2, .45, .5, .05, '#d9fff0', '#19ff8c', 1); } }
+    previousGates = g.gatesPassed; gateFlash = Math.max(0, gateFlash - dt * 2.5);
+    if (gateFlash > 0) streakMat.opacity = Math.max(streakMat.opacity, gateFlash * .7);
     // Trucks: blade transporters and tankers, placed from their tail.
     const liveTrucks = new Set();
     if (!parked) for (const p of g.platforms) {

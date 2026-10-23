@@ -115,7 +115,7 @@ function frame(milliseconds) {
   if (before === 'playing' && game.mode !== before) finish();
   const out = scene?.render(game, dt);
   if (out) {
-    for (const cue of out.cues) { sfx(cue); if (cue === 'eighty') { notice('88 MPH', 'eighty'); flash('eighty'); } }
+    for (const cue of out.cues) { sfx(cue); if (cue === 'gate') { const sp = $('speedo'); sp.classList.remove('gate'); void sp.offsetWidth; sp.classList.add('gate'); } if (cue === 'eighty') { notice('88 MPH', 'eighty'); flash('eighty'); } }
     audio.engine(game.mode === 'playing' ? out.mph : 0, out.thrust, out.boosting);
   }
   if (game.mode === 'playing' || game.mode === 'paused') {

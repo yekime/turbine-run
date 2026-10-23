@@ -13,6 +13,8 @@ export const CLEARANCE = { cow: 1.7, sheep: .95, goat: 1.0, bale: 1.6, kegs: 1.4
 // Low obstacles you can jump; tall ones you must dodge or ram with boost.
 const LOW = ['cow', 'cow', 'sheep', 'goat', 'bale', 'kegs'], TALL = ['tractor', 'caravan'];
 export const BOOST_TIME = 2.4;
+// Neon gates: every one you drive through adds speed for the rest of the run.
+export const GATE_SPACING = 300, GATE_BOOST = 3.2, FIRST_GATE = 420;
 const LANE_RESPONSE = 14;
 const ACCELERATION = 36 / LENGTH;
 const H = 1 / 240;
@@ -51,16 +53,17 @@ export function course(seed = 1981) {
     i += span + 1;
   }
   const events = rows.flatMap(r => r.items).map(e => ({ ...e, done: false })).sort((a, b) => a.z - b.z);
-  return { events, platforms };
+  const gates = []; for (let z = FIRST_GATE; z < LENGTH - 150; z += GATE_SPACING) gates.push(z);
+  return { events, platforms, gates };
 }
 
-export function speed(g) { return 72 + Math.min(1, g.distance / LENGTH) * 36 + (g.boost > 0 ? 40 : 0); }
+export function speed(g) { return 72 + (g.gatesPassed || 0) * GATE_BOOST + (g.boost > 0 ? 40 : 0); }
 
 export function createGame(seed = 1981) {
-  const { events, platforms } = course(seed);
+  const { events, platforms, gates } = course(seed);
   return { mode: 'ready', distance: 0, lane: 0, x: 0, y: 0, vy: 0, grounded: true, slamming: false,
     lives: 3, pints: 0, boost: 0, fuel: 0, invincible: 0, time: 0, hits: 0, smashed: 0,
-    flips: 0, flipDir: 0, bumps: 0, landings: 0, lastImpact: 0, acc: 0, events, platforms };
+    flips: 0, flipDir: 0, bumps: 0, landings: 0, lastImpact: 0, acc: 0, events, platforms, gates, gatesPassed: 0 };
 }
 
 /** Car position along the course in event coordinates. */
@@ -131,6 +134,7 @@ function substep(g, sounds) {
       sounds.push(g.slamming ? 'slam' : 'land'); g.slamming = false;
     }
   }
+  while (g.gatesPassed < g.gates.length && g.gates[g.gatesPassed] <= c) { g.gatesPassed++; sounds.push('gate'); }
   for (const e of g.events) {
     if (e.done) continue;
     if (e.z > c) break;
