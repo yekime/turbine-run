@@ -50,9 +50,9 @@ export function createCar(T) {
   const {mat,box,cylinder,pipe,prism,wheel}=kit(T);
   const car=new T.Group(),body=new T.Group();car.add(body);
   const steel=mat('#b8d2dd',{metalness:.72,roughness:.32}),lightSteel=mat('#e0edf0',{metalness:.62,roughness:.3});
-  const dark=mat('#192630'),tire=mat('#16202a'),glass=mat('#287487',{metalness:.4,roughness:.2});
-  const red=mat('#ff3d4c',{emissive:'#fb192b',emissiveIntensity:.6}),amber=mat('#ffb74c',{emissive:'#ff8a24',emissiveIntensity:.35});
-  const cyan=mat('#7af5ff',{emissive:'#20d6ff',emissiveIntensity:2}),white=mat('#ffffdc',{emissive:'#fff4bd',emissiveIntensity:.7});
+  const dark=mat('#192630'),tire=mat('#16202a'),glass=mat('#3fd6e8',{metalness:.3,roughness:.12,transparent:true,opacity:.42,depthWrite:false});
+  const red=mat('#ff3d4c',{emissive:'#ff1a3c',emissiveIntensity:3.2}),amber=mat('#ffb74c',{emissive:'#ff8a24',emissiveIntensity:.35});
+  const cyan=mat('#7af5ff',{emissive:'#20d6ff',emissiveIntensity:2}),white=mat('#ffffdc',{emissive:'#fff4bd',emissiveIntensity:2.4});
   // Stainless wedge: low nose, upright clipped tail, angular glass cabin.
   prism(body,steel,1.82,[[-1.96,.43],[-1.96,.68],[-.65,.92],[1.78,.87],[1.89,.57],[1.72,.4]]);
   box(body,dark,[1.79,.14,3.54],[0,.39,-.04]);
@@ -103,15 +103,14 @@ export function createCar(T) {
   }
   // Small Irish tricolour on the rear-left quarter; green sits at the hoist.
   const flag=new T.Group();flag.position.set(-.94,0,1.63);body.add(flag);
-  cylinder(flag,lightSteel,.024,.024,1.19,[0,1.49,0],[0,0,0],6);
-  for(const [i,color]of ['#159b59','#fffaf0','#f28a35'].entries())box(flag,mat(color),[.20,.35,.025],[.11+i*.20,1.87,0]);
+  cylinder(flag,lightSteel,.03,.03,.16,[0,.98,0],[0,0,0],6);
   car.userData={wheels,jet,flame,body,flag,doors:doors.reverse(),dimensions:{width:2.20,height:1.56,length:4.1}};
   return car;
 }
 
 function animal(T,kind){
   const {mat,box,sphere,cylinder,pipe}=kit(T);const group=new T.Group(),cow=kind==='cow';
-  const cream=mat(cow?'#fff7e7':'#f7edd9'),black=mat('#272432'),pink=mat('#ed9b9f'),horn=mat('#e7c59c');
+  const cream=mat(cow?'#fffaf0':'#fff6e6'),black=mat('#2a2238'),pink=mat('#ed9b9f'),horn=mat('#e7c59c');
   const body=new T.Group();group.add(body);
   const legY=cow?.30:.22;
   for(const x of [-.30,.30])for(const z of [-.43,.43]){
@@ -135,6 +134,7 @@ function animal(T,kind){
     sphere(head,cream,[.018,.024,.015],[side*.19,.105,-.392]);
     if(cow){cylinder(head,horn,.015,.075,.27,[side*.24,.37,.03],[0,0,-side*.35],7);sphere(head,black,[.038,.026,.015],[side*.13,-.18,-.52]);}
   }
+  if(cow){const bell=mat('#ffd23f',{metalness:.6,roughness:.25,emissive:'#ffb000',emissiveIntensity:.5});sphere(body,bell,[.11,.12,.11],[0,.62,-.62]);box(body,mat('#e83a5c'),[.5,.07,.08],[0,.78,-.6]);}
   if(!cow)for(const x of [-.2,0,.2])sphere(head,cream,[.17,.16,.16],[x,.30,.02]);
   pipe(body,cream,[0,cow?1.08:.83,.73],[.13,cow?.63:.63,cow?1.02:.89],.045);
   sphere(body,cow?black:cream,[.09,.13,.08],[.13,cow?.61:.64,cow?1.04:.89]);
@@ -145,7 +145,7 @@ export function createSheep(T){return animal(T,'sheep');}
 
 export function createTractor(T){
   const {mat,box,cylinder,pipe,wheel}=kit(T);const group=new T.Group();
-  const green=mat('#4caa5b'),light=mat('#89c96b'),dark=mat('#263c3a'),tire=mat('#20252a'),rim=mat('#f2d378'),glass=mat('#9edbd8',{metalness:.25,roughness:.22});
+  const green=mat('#19c95a'),light=mat('#7dff9e'),dark=mat('#263c3a'),tire=mat('#20252a'),rim=mat('#f2d378'),glass=mat('#9edbd8',{metalness:.25,roughness:.22});
   box(group,dark,[1.20,.29,2.35],[0,.48,0]);box(group,green,[1.03,.68,1.47],[0,1,-.53]);
   box(group,light,[1.08,.08,1.45],[0,1.37,-.53]);box(group,dark,[.89,.46,.05],[0,1.04,-1.29]);
   for(let i=0;i<7;i++)box(group,rim,[.045,.38,.04],[-.36+i*.12,1.04,-1.33]);
@@ -159,12 +159,13 @@ export function createTractor(T){
     box(group,dark,[.28,.09,.40],[side*.67,.70,.07]);
     pipe(group,rim,[side*.57,1.21,.0],[side*.57,1.76,.0],.025);
   }
+  const neon=mat('#ff9a2e',{emissive:'#ff7a00',emissiveIntensity:3});box(group,neon,[1.2,.09,.12],[0,2.35,.0]);for(const side of [-1,1])box(group,neon,[.2,.14,.06],[side*.38,1.1,-1.36]);
   group.userData={wheels,dimensions:{width:1.94,height:2.32,length:2.7}};return group;
 }
 
 export function createPint(T){
   const {mat,box,cylinder,sphere}=kit(T);const group=new T.Group();
-  const stout=mat('#402521'),gold=mat('#ffc85a',{metalness:.45,roughness:.3}),foam=mat('#fff8d9');
+  const stout=mat('#402521'),gold=mat('#ffc85a',{metalness:.45,roughness:.3,emissive:'#ffaa22',emissiveIntensity:1.2}),foam=mat('#fff8d9',{emissive:'#fff1c0',emissiveIntensity:.35});
   cylinder(group,gold,.265,.265,.08,[0,.04,0],[0,0,0],12);
   cylinder(group,gold,.335,.335,.045,[0,.86,0],[0,0,0],12);
   cylinder(group,stout,.315,.245,.72,[0,.50,0],[0,0,0],12);
@@ -180,10 +181,10 @@ export function createPint(T){
 
 export function createTurbine(T){
   const {mat,cylinder,box,sphere}=kit(T);const group=new T.Group();
-  const white=mat('#f3f4df'),shade=mat('#c4dcdb'),red=mat('#ef7757');
+  const white=mat('#f6f3ff'),shade=mat('#d9d2f0'),red=mat('#ff3a5a',{emissive:'#ff1d48',emissiveIntensity:3});
   cylinder(group,shade,.15,.32,6.9,[0,3.45,0],[0,0,0],10);
   cylinder(group,white,.40,.46,.18,[0,.09,0],[0,0,0],10);
-  box(group,white,[.51,.49,.88],[0,6.95,.12]);
+  box(group,white,[.51,.49,.88],[0,6.95,.12]);box(group,mat('#22ff8f',{emissive:'#11ff88',emissiveIntensity:3}),[.53,.06,.9],[0,6.78,.12]);box(group,red,[.1,.1,.1],[0,7.25,.4]);
   const rotor=new T.Group();rotor.position.set(0,6.95,-.42);group.add(rotor);
   sphere(rotor,white,[.28,.28,.30],[0,0,-.05]);
   for(let i=0;i<3;i++){
@@ -197,7 +198,7 @@ export function createTurbine(T){
 
 export function createPub(T){
   const {mat,box,prism,cylinder}=kit(T);const group=new T.Group();
-  const wall=mat('#e8cda0'),roof=mat('#334a49'),trim=mat('#2e654e'),wood=mat('#754b32'),gold=mat('#f7cb72'),glass=mat('#ffd482',{emissive:'#ffb952',emissiveIntensity:.4});
+  const wall=mat('#e8cda0'),roof=mat('#334a49'),trim=mat('#2e654e'),wood=mat('#754b32'),gold=mat('#f7cb72'),glass=mat('#ffd482',{emissive:'#ffb952',emissiveIntensity:2.2});
   box(group,wall,[6,2.65,3.4],[0,1.325,0]);
   // Roof ridge runs along X; an extrusion of the house's end gable.
   prism(group,roof,6.45,[[-1.95,2.62],[0,3.8],[1.95,2.62]]);
@@ -215,7 +216,7 @@ export function createPub(T){
     const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=160;const ctx=canvas.getContext('2d');
     if(ctx){ctx.fillStyle='#28513e';ctx.fillRect(0,0,1024,160);ctx.strokeStyle='#f8d99c';ctx.lineWidth=3;ctx.strokeRect(14,12,996,136);ctx.fillStyle='#fff0bb';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 62px Georgia, serif';ctx.fillText('THE TURBINE ARMS',512,82);
       const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;
-      const sign=new T.Mesh(new T.PlaneGeometry(4.02,.55),new T.MeshBasicMaterial({map:texture}));sign.castShadow=true;sign.receiveShadow=true;sign.position.set(0,2.32,-1.93);sign.rotation.y=Math.PI;group.add(sign);group.userData.sign=sign;
+      const sign=new T.Mesh(new T.PlaneGeometry(4.02,.55),new T.MeshBasicMaterial({map:texture,color:new T.Color(2.2,2.2,2.2)}));sign.castShadow=true;sign.receiveShadow=true;sign.position.set(0,2.32,-1.93);sign.rotation.y=Math.PI;group.add(sign);group.userData.sign=sign;
     }
   }
   box(group,wall,[.55,1.08,.62],[1.9,3.48,.45]);box(group,roof,[.69,.15,.74],[1.9,4.03,.45]);
@@ -225,7 +226,7 @@ export function createPub(T){
 
 export function createTree(T){
   const {mat,cylinder,sphere}=kit(T);const group=new T.Group();
-  const bark=mat('#75583d'),leaf=mat('#65ad55'),sun=mat('#8ac368');
+  const bark=mat('#7a4b34'),leaf=mat('#1fcf62'),sun=mat('#8cff6e');
   cylinder(group,bark,.14,.23,1.7,[0,.86,0],[0,0,.05],7);
   sphere(group,leaf,[.94,.96,.82],[0,2.1,0]);sphere(group,sun,[.69,.76,.66],[-.48,2.48,-.12]);sphere(group,leaf,[.66,.72,.64],[.59,2.23,.07]);
   group.userData.dimensions={width:2.5,height:3.25,length:1.8};return group;
