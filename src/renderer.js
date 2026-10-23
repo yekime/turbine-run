@@ -271,7 +271,7 @@ export function createRenderer(canvas) {
   batchStatic(THREE, driver, [...driver.userData.legs, ...driver.userData.arms]);
   for (const limb of [...driver.userData.legs, ...driver.userData.arms]) batchStatic(THREE, limb);
   const runner = new THREE.Group(); runner.add(driver); scene.add(runner);
-  const handPint = batchStatic(THREE, createPint(THREE)); handPint.scale.setScalar(.42); handPint.position.set(.04, -.5, -.1); handPint.visible = false; driver.userData.arms[1].add(handPint);
+  const handPint = batchStatic(THREE, createPint(THREE)); handPint.scale.setScalar(.42); handPint.visible = false; driver.add(handPint);
   let winTime = 0, chugs = 0, lastChug = -1;
 
   const pub = batchStatic(THREE, createPub(THREE)); pub.rotation.y = Math.PI; pub.scale.setScalar(1.6); scene.add(pub); pub.visible = false;
@@ -508,11 +508,13 @@ export function createRenderer(canvas) {
       runner.rotation.set(0, Math.PI - .95 + Math.sin(winTime * .8) * .1, 0);
       driver.scale.setScalar(1); driver.position.y = 0;
       driver.rotation.set(raise * .32, 0, Math.sin(winTime * 5) * .04 * raise);
-      driver.userData.arms[1].rotation.x = 2.45 * raise; driver.userData.arms[1].rotation.z = -.35 * raise;
+      driver.userData.arms[1].rotation.x = 2.05 * raise; driver.userData.arms[1].rotation.z = -.55 * raise;
       driver.userData.arms[0].rotation.x = Math.sin(winTime * 3) * .25 - raise * .4;
       driver.userData.arms[0].rotation.z = raise * .5;
       driver.userData.legs.forEach((l, i) => l.rotation.x = i ? Math.max(0, Math.sin(winTime * 9)) * .3 * (1 - raise) : 0);
-      handPint.rotation.x = -raise * .35;
+      // Glass held at his side, then tipped bottom-up with the rim at his mouth (never inside the head).
+      handPint.position.set(lerp(.36, .06, raise), lerp(.6, 1.3, raise), lerp(-.1, -.6, raise));
+      handPint.rotation.set(1.95 * raise, 0, 0);
       if (n !== lastChug && winTime > .4) { lastChug = n; chugs++; const hp = new THREE.Vector3(); handPint.getWorldPosition(hp); for (let i = 0; i < 18; i++) fx.emit(hp.x, hp.y + .3, hp.z, (Math.random() - .5) * 3, 2 + Math.random() * 3, (Math.random() - .5) * 3, .6, .35, .05, '#fff6dc', '#ffcc4a', 2); }
       if (Math.random() < dt * 14) { const c = ['#19ff8c', '#ffffff', '#ff8a1f'][Math.floor(Math.random() * 3)]; fx.emit(-4 + Math.random() * 8, 6 + Math.random() * 2, -14 + Math.random() * 6, (Math.random() - .5) * 2, -1.5, 0, 2.4, .35, .25, c, c, .3, -.6); }
     } else { lastChug = -1; chugs = 0; }
