@@ -6,7 +6,7 @@ import { OutputPass } from '../vendor/postprocessing/OutputPass.js';
 import { batchStatic } from './scene-utils.js';
 import { COLLISION_OFFSET, LENGTH, RAMP, speed as engineSpeed, surface as engineSurface, carZ } from './engine.js';
 import { createCar, createCow, createSheep, createTractor, createPint, createTurbine, createPub, createTree, createLeprechaun } from './models.js';
-import { createGantry, createCottage, createShamrock, createRoundTower, createBladeTruck, createTanker, NEON } from './props.js';
+import { createGantry, createCottage, createShamrock, createRoundTower, createBladeTruck, createTanker, createBale, createKegs, createCaravan, createGoat, NEON } from './props.js';
 
 // Simulation units are scaled to metres here. 0.3 m per unit puts the base speed at
 // about 22 m/s and boost past 44 m/s, so the road actually rushes past.
@@ -18,7 +18,7 @@ const wave = (t, s = 0) => Math.sin(t * 1.7 + s) * .5 + Math.sin(t * 3.1 + s * 2
 
 // Curved world: every standard material bends down (and slightly sideways) with distance
 // ahead of the car, so the horizon drops away and things rise over the brow at speed.
-const BEND = { value: new THREE.Vector3(.0024, 0, 3) };
+const BEND = { value: new THREE.Vector3(.0018, 0, 3) };
 let bendInstalled = false;
 function installBend() {
   if (bendInstalled) return; bendInstalled = true;
@@ -196,9 +196,9 @@ export function createRenderer(canvas) {
   const wall = new THREE.InstancedMesh(new THREE.BoxGeometry(1, .7, 1.9), mat('#d7cfee'), 260); wall.castShadow = wall.receiveShadow = true; wall.frustumCulled = false; scene.add(wall);
   const moss = new THREE.InstancedMesh(new THREE.BoxGeometry(1.06, .14, 1.95), mat('#36e27a'), 260); moss.frustumCulled = false; scene.add(moss);
   const POSTS = 64, POST_GAP = 10;
-  const pole = new THREE.InstancedMesh(new THREE.BoxGeometry(.18, 4.6, .18), mat('#2a1d4a', { metalness: .6, roughness: .35 }), POSTS); pole.castShadow = true; pole.frustumCulled = false; scene.add(pole);
-  const arm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.6, .14, .18), mat('#2a1d4a', { metalness: .6 }), POSTS); arm.frustumCulled = false; scene.add(arm);
-  const lamp = new THREE.InstancedMesh(new THREE.BoxGeometry(.9, .14, .34), new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 3.4 }), POSTS); lamp.frustumCulled = false; scene.add(lamp);
+  const pole = new THREE.InstancedMesh(new THREE.BoxGeometry(.18, 4.6, .18), mat('#2a1d4a', { metalness: .1, roughness: .9 }), POSTS); pole.castShadow = true; pole.frustumCulled = false; scene.add(pole);
+  const arm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.6, .14, .18), mat('#2a1d4a', { metalness: .1, roughness: .9 }), POSTS); arm.frustumCulled = false; scene.add(arm);
+  const lamp = new THREE.InstancedMesh(new THREE.BoxGeometry(.9, .14, .34), new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 2.7, roughness: 1, metalness: 0 }), POSTS); lamp.frustumCulled = false; scene.add(lamp);
   for (let i = 0; i < POSTS; i++) lamp.setColorAt(i, color.set(i % 4 < 2 ? NEON.green : NEON.orange));
   lamp.instanceColor.needsUpdate = true;
   const hedge = new THREE.InstancedMesh(new THREE.BoxGeometry(1.3, 1.5, 3.4), mat('#13b85a'), 110); hedge.castShadow = hedge.receiveShadow = true; hedge.frustumCulled = false; scene.add(hedge);
@@ -273,7 +273,8 @@ export function createRenderer(canvas) {
   const ring = new THREE.Mesh(new THREE.TorusGeometry(1.4, .07, 6, 40), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.4, .8), transparent: true, depthWrite: false, blending: add2, fog: false })); ring.visible = false; scene.add(ring);
   const shock = new THREE.Mesh(new THREE.TorusGeometry(1, .025, 6, 48), new THREE.MeshBasicMaterial({ color: new THREE.Color(.6, 2.2, 2.6), transparent: true, depthWrite: false, blending: add2, fog: false })); shock.visible = false; scene.add(shock);
 
-  const builders = { cow: createCow, sheep: createSheep, tractor: createTractor, pint: createPint };
+  const builders = { cow: createCow, sheep: createSheep, tractor: createTractor, pint: createPint, bale: createBale, kegs: createKegs, caravan: createCaravan, goat: createGoat };
+  const SIZE = { cow: 1.55, sheep: 1.15, goat: 1.1, pint: 1.25 };
   const events = new Map(); let eventSource = null; const trucks = new Map();
   const pintHalo = radial('rgba(255,220,120,1)', 'rgba(255,160,40,0)');
 
@@ -374,18 +375,27 @@ export function createRenderer(canvas) {
     if (!parked) for (const e of g.events) {
       const ahead = (e.z - g.distance - COLLISION_OFFSET) * SCALE;
       let entry = events.get(e);
-      if ((e.collected && !entry) || (ahead < -3.5 && !(entry && entry.fly)) || ahead < -40 || ahead > 160) continue;
+      if ((e.collected && !entry) || (ahead < -3.5 && !(entry && (entry.fly || entry.tip))) || ahead < -40 || ahead > 160) continue;
       needed.add(e);
       if (!entry) {
         const object = batchStatic(THREE, (builders[e.type] || createSheep)(THREE)); scene.add(object);
-        entry = { object, phase: noise(e.z) * 6, fly: null };
-        if (e.type === 'pint') { const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: pintHalo, color: new THREE.Color(2, 1.5, .6), blending: add2, depthWrite: false, transparent: true })); halo.scale.setScalar(2.4); halo.position.y = .55; object.add(halo); object.scale.setScalar(1.25); }
+        entry = { object, phase: noise(e.z) * 6, fly: null, tip: null }; object.scale.setScalar(SIZE[e.type] || 1); if (e.type === 'cow' || e.type === 'goat') object.rotation.y = (noise(e.z + 3) - .5) * .8;
+        if (e.type === 'pint') { const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: pintHalo, color: new THREE.Color(2, 1.5, .6), blending: add2, depthWrite: false, transparent: true })); halo.scale.setScalar(2.4); halo.position.y = .55; object.add(halo); }
         events.set(e, entry);
       }
       const o = entry.object;
-      if (e.smashed && !entry.fly) { entry.fly = { x: o.position.x, y: o.position.y, z: o.position.z, vx: (o.position.x - car.position.x || .5) * 4 + (Math.random() - .5) * 8, vy: 14 + Math.random() * 5, vz: -roadSpeed * .7, sx: 10 + Math.random() * 8, sz: (Math.random() - .5) * 14 }; shake(.35); kick(-.6, 1.2, (Math.random() - .5) * 4); for (let i = 0; i < 26; i++) fx.emit(o.position.x, 1, o.position.z, (Math.random() - .5) * 12, Math.random() * 10, -Math.random() * 8, .5, .4, .05, '#bff8ff', '#3ff3ff', 1.5); }
+      if (e.smashed && !entry.fly) { entry.fly = { x: o.position.x, y: o.position.y, z: o.position.z, vx: (Math.sign(o.position.x - car.position.x) || (Math.random() < .5 ? -1 : 1)) * (7 + Math.random() * 6), vy: 15 + Math.random() * 7, vz: -roadSpeed * 1.25, sx: 9 + Math.random() * 9, sz: (Math.random() - .5) * 16 }; shake(.35); kick(-.6, 1.2, (Math.random() - .5) * 4); for (let i = 0; i < 26; i++) fx.emit(o.position.x, 1, o.position.z, (Math.random() - .5) * 12, Math.random() * 10, -Math.random() * 8, .5, .4, .05, '#bff8ff', '#3ff3ff', 1.5); }
+      if (entry.tip) {
+        // Crashed into: it topples onto its side (or a tall vehicle rocks) and slides with the road.
+        const k = entry.tip; k.t += dt; if (k.t < dt * 1.5) k.z = Math.min(k.z, -7); k.z += roadSpeed * dt * (k.t < .35 ? 0 : 1);
+        o.visible = k.z < 2.2;
+        o.position.set(k.x + k.dir * smooth(k.t, 0, .35) * 2.6, k.rock ? 0 : Math.sin(clamp(k.t / .35, 0, 1) * Math.PI) * .4, k.z);
+        if (k.rock) o.rotation.z = Math.sin(k.t * 18) * Math.exp(-k.t * 4) * .18; else { o.rotation.z = -k.dir * smooth(k.t, 0, .4) * Math.PI / 2; o.rotation.x = Math.sin(k.t * 30) * Math.exp(-k.t * 6) * .1; }
+        if (k.t < .05 && !k.dust) { k.dust = true; for (let i = 0; i < 22; i++) smoke.emit(k.x, .3, k.z, (Math.random() - .5) * 7, Math.random() * 3, (Math.random() - .5) * 4, .9, .6, 2, '#f2e9ff', '#9f8ccc', 2, .4, true); }
+        continue;
+      }
       if (entry.fly) {
-        const f = entry.fly; f.vy -= 22 * dt; f.x += f.vx * dt; f.y = Math.max(0, f.y + f.vy * dt); f.z += (f.vz + roadSpeed) * dt;
+        const f = entry.fly; f.vy -= 22 * dt; f.x += f.vx * dt; f.y = Math.max(0, f.y + f.vy * dt); if (f.y === 0 && f.vy < 0) { f.vy = Math.abs(f.vy) > 6 ? -f.vy * .35 : 0; f.vz *= .7; f.vx *= .7; f.sx *= .6; f.sz *= .6; } f.z += (f.vz + roadSpeed) * dt;
         o.position.set(f.x, f.y, f.z); o.rotation.x += f.sx * dt; o.rotation.z += f.sz * dt; continue;
       }
       o.position.set(e.lane * LANE, 0, -ahead);
@@ -397,9 +407,11 @@ export function createRenderer(canvas) {
 
     // Collisions read from the engine's counters.
     if (g.hits > previousHits) {
-      let best = null;
-      for (const [e, entry] of events) if (e.hit && !entry.fly) best = entry;
-      if (best) best.fly = { x: best.object.position.x, y: 0, z: best.object.position.z, vx: (best.object.position.x - car.position.x || (Math.random() - .5)) * 3 + (Math.random() - .5) * 6, vy: 11, vz: -roadSpeed * .55, sx: 8 + Math.random() * 6, sz: (Math.random() - .5) * 10 };
+      let best = null, bestE = null;
+      for (const [e, entry] of events) if (e.hit && !entry.fly && !entry.tip) { best = entry; bestE = e; }
+      if (best && bestE.type !== 'tractor' && bestE.type !== 'caravan') best.tip = { t: 0, dir: Math.sign(best.object.position.x - car.position.x) || (Math.random() < .5 ? -1 : 1), z: best.object.position.z, x: best.object.position.x };
+      else if (best) best.tip = { t: 0, dir: 0, rock: true, z: best.object.position.z, x: best.object.position.x };
+      if (false) best.fly = { x: best.object.position.x, y: 0, z: best.object.position.z, vx: (best.object.position.x - car.position.x || (Math.random() - .5)) * 3 + (Math.random() - .5) * 6, vy: 11, vz: -roadSpeed * .55, sx: 8 + Math.random() * 6, sz: (Math.random() - .5) * 10 };
       shake(.9); kick(-2.2, 2.5, (Math.random() - .5) * 5);
       for (let i = 0; i < 40; i++) fx.emit(car.position.x, 1, car.position.z - 2, (Math.random() - .5) * 14, Math.random() * 9, -Math.random() * 6, .6, .35, .05, '#fff6a0', '#ff3a5a', 1.5);
     }
@@ -432,7 +444,7 @@ export function createRenderer(canvas) {
     if (boosting && !previousBoost) { shockAge = 0; shake(.7); kick(.4, -3.5); fovKick = 1; for (let i = 0; i < 40; i++) { const a = Math.random() * Math.PI * 2; fx.emit(car.position.x, 1.1, car.position.z + 2.4, Math.cos(a) * 9, Math.sin(a) * 9, 4, .45, .5, .1, '#bff8ff', '#3ff3ff', 2.5); } }
     previousBoost = boosting;
     const steerDelta = parked ? 0 : clamp((g.lane - g.x), -1, 1);
-    spring.vr += -steerDelta * 10 * dt;
+    spring.vr += -steerDelta * 22 * dt;
     for (const [k, v, stiff, dampK] of [['y', 'vy', 120, 11], ['p', 'vp', 110, 9], ['r', 'vr', 100, 9]]) { spring[v] += (-spring[k] * stiff - spring[v] * dampK) * dt; spring[k] += spring[v] * dt; }
     const rumble = playing ? (Math.sin(elapsed * 53) * .006 + Math.sin(elapsed * 31) * .005) * (1 + speedFactor * 2 + (boosting ? 3 : 0)) : 0;
     body.position.y = spring.y * .08 + rumble;
@@ -442,8 +454,9 @@ export function createRenderer(canvas) {
     car.position.x = parked ? 0 : damp(car.position.x, desiredX, 20, dt);
     car.position.z = 0;
     car.position.y = jumpHeight;
-    const steering = parked ? 0 : clamp(steerDelta * .55, -.4, .4);
-    car.rotation.y = damp(car.rotation.y, -steering, 12, dt);
+    const steering = parked ? 0 : clamp(steerDelta * .95, -.62, .62);
+    car.rotation.y = damp(car.rotation.y, -steering, 16, dt);
+    if (Math.abs(steerDelta) > .35 && !jumping && Math.random() < dt * 50) for (const s of [-1, 1]) smoke.emit(car.position.x + s * .9, .15 + ground, 1.4, -steerDelta * 3, .6, 1, .5, .3, 1.1, '#ffffff', '#b9a8de', 3, .3, true);
     car.rotation.x = damp(car.rotation.x, jumping ? clamp(-g.vy * .016, -.3, .35) : 0, 12, dt);
     // Barrel roll when switching lanes in the air.
     const barrel = flipAge < .5 ? smooth(flipAge, 0, .5) * Math.PI * 2 * flipDir : 0;
@@ -554,7 +567,7 @@ export function createRenderer(canvas) {
       look = [ -1, 1, 0 ]; fov = portrait ? 66 : 50; roll = 0;
     } else {
       camX = damp(camX, car.position.x * .82, 7, dt);
-      const chase = { y: portrait ? 3.7 : 3.0, z: portrait ? 7.4 : 6.6, lookY: portrait ? .9 : 1.05, lookZ: portrait ? -9 : -11 };
+      const chase = { y: portrait ? 4.7 : 3.9, z: portrait ? 7.8 : 7.0, lookY: portrait ? .6 : .8, lookZ: portrait ? -14 : -16 };
       const boostDrop = boosting ? 1 : 0;
       camY = damp(camY, jumpHeight, jumping ? 3.5 : 6, dt);
       let cx = camX, cy = chase.y - boostDrop * .45 - speedFactor * .25 + camY * .7, cz = chase.z - boostDrop * .9;

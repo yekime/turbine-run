@@ -9,7 +9,9 @@ export const JUMP_DURATION = 2 * JUMP_VELOCITY / GRAVITY;
 export const JUMP_APEX = JUMP_VELOCITY * JUMP_VELOCITY / (2 * GRAVITY);
 export const RAMP = 15;
 export const DECK = { blade: 2.6, tanker: 1.85 };
-export const CLEARANCE = { cow: 1.2, sheep: .95, tractor: 2.7 };
+export const CLEARANCE = { cow: 1.7, sheep: .95, goat: 1.0, bale: 1.6, kegs: 1.45, tractor: 2.7, caravan: 3.2 };
+// Low obstacles you can jump; tall ones you must dodge or ram with boost.
+const LOW = ['cow', 'cow', 'sheep', 'goat', 'bale', 'kegs'], TALL = ['tractor', 'caravan'];
 export const BOOST_TIME = 2.4;
 const LANE_RESPONSE = 14;
 const ACCELERATION = 36 / LENGTH;
@@ -23,8 +25,9 @@ export function course(seed = 1981) {
     const safe = Math.floor(random() * 3) - 1;
     const others = [-1, 0, 1].filter(x => x !== safe);
     const row = { z, safe, items: [{ z, lane: safe, type: 'pint' }] };
-    row.items.push({ z, lane: others[0], type: random() > .43 ? 'cow' : 'tractor' });
-    if (random() > (.65 - .48 * (z / LENGTH))) row.items.push({ z, lane: others[1], type: random() > .65 ? 'tractor' : 'sheep' });
+    const pick = () => random() > .4 ? LOW[Math.floor(random() * LOW.length)] : TALL[Math.floor(random() * TALL.length)];
+    row.items.push({ z, lane: others[0], type: pick() });
+    if (random() > (.65 - .48 * (z / LENGTH))) row.items.push({ z, lane: others[1], type: pick() });
     rows.push(row);
   }
   // Trucks: a blade transporter with a ramp you can drive up, or a tanker you must jump onto.

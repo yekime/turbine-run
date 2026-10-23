@@ -19,7 +19,8 @@ Serve this directory with `python3 -m http.server 8080`, then visit `http://loca
 
 - Switching lanes in the air does a barrel roll.
 - Pints fill the jet gauge, five at most. A boost lasts 2.4 s, adds 40 mph and rams livestock and tractors out of the way.
-- Jump cows and sheep. Tractors are too tall to jump.
+- Jump cows, sheep, goats, hay bales and keg stacks. Tractors and caravans are too tall: dodge them or boost through.
+- Crash into livestock and it topples over; boost into it and it flies.
 - Blade transporters have a ramp at the back: drive straight up and ride the blade. Bonus pints run along the top.
 - Tankers have no ramp. Driving into the back costs bodywork. Jump onto them instead.
 - You can't steer into the side of a truck; the car bumps off it.

@@ -132,3 +132,53 @@ export function createTanker(T, length, deck) {
   box(g, mat('#ff8a1f'), [2.4, 2.3, 2.4], [0, 1.5, -length + 1.2]); box(g, mat('#3fd6e8', { metalness: .3, roughness: .1 }), [2.2, .8, .1], [0, 2, -length - .02]);
   return g;
 }
+
+/** Round hay bale wrapped in green plastic, lying on its side across the lane. */
+export function createBale(T) {
+  const { mat, box } = kit(T); const g = new T.Group();
+  const wrap = mat('#1fd06a', { roughness: .45 }), hay = mat('#f2c14e'), band = mat('#fff3d6');
+  const b = new T.Mesh(new T.CylinderGeometry(.85, .85, 1.5, 16), wrap); b.rotation.z = Math.PI / 2; b.position.y = .85; b.castShadow = b.receiveShadow = true; g.add(b);
+  for (const s of [-1, 1]) { const f = new T.Mesh(new T.CylinderGeometry(.8, .8, .04, 16), hay); f.rotation.z = Math.PI / 2; f.position.set(s * .76, .85, 0); g.add(f); }
+  for (const x of [-.35, .35]) { const r = new T.Mesh(new T.CylinderGeometry(.865, .865, .1, 16), band); r.rotation.z = Math.PI / 2; r.position.set(x, .85, 0); g.add(r); }
+  void box; return g;
+}
+
+/** A pyramid of steel kegs with a glowing harp-gold band. */
+export function createKegs(T) {
+  const { mat, glow } = kit(T); const g = new T.Group();
+  const steel = mat('#dfe6f5', { metalness: .35, roughness: .35 }), gold = glow('#ffcc4a', 1.4);
+  const keg = (x, y) => { const k = new T.Group(); const c = new T.Mesh(new T.CylinderGeometry(.34, .34, .68, 12), steel); c.castShadow = c.receiveShadow = true; k.add(c);
+    for (const h of [-.22, .22]) { const r = new T.Mesh(new T.CylinderGeometry(.36, .36, .06, 12), steel); r.position.y = h; k.add(r); }
+    const b = new T.Mesh(new T.CylinderGeometry(.35, .35, .1, 12), gold); k.add(b); k.position.set(x, y + .34, 0); g.add(k); };
+  for (const x of [-.72, 0, .72]) keg(x, 0); for (const x of [-.36, .36]) keg(x, .68);
+  return g;
+}
+
+/** Traditional barrel-top caravan with spoked wheels. Too tall to jump. */
+export function createCaravan(T) {
+  const { mat, glow, box } = kit(T); const g = new T.Group();
+  const red = mat('#e8243c'), green = mat('#19c95a'), yellow = mat('#ffd23f'), wood = mat('#7a4b34');
+  box(g, red, [1.9, 1.6, 3.2], [0, 1.65, 0]);
+  const roof = new T.Mesh(new T.CylinderGeometry(1.05, 1.05, 3.4, 16, 1, false, 0, Math.PI), green); roof.rotation.z = Math.PI / 2; roof.rotation.y = Math.PI / 2; roof.position.y = 2.45; roof.scale.set(1, 1, .7); roof.castShadow = true; g.add(roof);
+  for (const s of [-1, 1]) box(g, yellow, [.06, .14, 3.22], [s * .96, 1.1, 0]);
+  box(g, glow('#ffcf6a', 2.4), [.9, .7, .06], [0, 1.9, 1.62]); box(g, yellow, [1.1, .9, .04], [0, 1.9, 1.6]);
+  for (const z of [-1.1, 1.1]) for (const s of [-1, 1]) {
+    const w = new T.Group(); w.position.set(s * 1.02, .62, z); g.add(w);
+    const rim = new T.Mesh(new T.TorusGeometry(.56, .06, 6, 16), yellow); rim.rotation.y = Math.PI / 2; w.add(rim);
+    for (let i = 0; i < 6; i++) { const sp = new T.Mesh(new T.BoxGeometry(.04, 1.08, .05), wood); sp.rotation.x = i * Math.PI / 6; w.add(sp); }
+  }
+  box(g, wood, [.1, .1, 1.6], [-.4, .9, -2.3]); box(g, wood, [.1, .1, 1.6], [.4, .9, -2.3]);
+  return g;
+}
+
+/** Wiry hill goat with curled horns. */
+export function createGoat(T) {
+  const { mat, box } = kit(T); const g = new T.Group();
+  const coat = mat('#f2efe8'), dark = mat('#3a3040'), horn = mat('#c9b38a');
+  box(g, coat, [.55, .5, 1.05], [0, .82, 0]);
+  for (const x of [-.18, .18]) for (const z of [-.38, .38]) box(g, dark, [.11, .58, .11], [x, .29, z]);
+  box(g, coat, [.32, .36, .44], [0, 1.18, -.62]); box(g, dark, [.1, .22, .08], [0, .95, -.82]);
+  for (const s of [-1, 1]) { const h = new T.Mesh(new T.TorusGeometry(.13, .04, 6, 10, Math.PI * 1.4), horn); h.position.set(s * .12, 1.42, -.52); h.rotation.y = Math.PI / 2; g.add(h); }
+  box(g, coat, [.12, .12, .2], [0, 1.0, .58]);
+  return g;
+}
