@@ -1,20 +1,29 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#2a0f5c"><meta name="description" content="Jet-powered DeLorean. Irish back roads. Last orders."><title>Turbine Run</title><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="src/style.css">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1c0a36"><meta name="description" content="Jet-powered DeLorean. Irish back roads. Last orders."><title>Turbine Run</title><link rel="icon" href="favicon.svg">
+<link rel="preload" href="vendor/fonts/bungee-400.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="vendor/fonts/chakra-petch-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="src/style.css">
 <!-- Fetch the whole module graph at once instead of one import level at a time. -->
-<link rel="modulepreload" href="src/lastcall.svg.js"><link rel="modulepreload" href="vendor/three.core.js"><link rel="modulepreload" href="vendor/three.module.js"><link rel="modulepreload" href="src/renderer.js"><link rel="modulepreload" href="src/models.js"><link rel="modulepreload" href="src/props.js"><link rel="modulepreload" href="src/engine.js"><link rel="modulepreload" href="src/audio.js"><link rel="modulepreload" href="vendor/postprocessing/EffectComposer.js"><link rel="modulepreload" href="vendor/postprocessing/UnrealBloomPass.js"></head>
+<link rel="modulepreload" href="vendor/three.core.js"><link rel="modulepreload" href="vendor/three.module.js"><link rel="modulepreload" href="src/renderer.js"><link rel="modulepreload" href="src/models.js"><link rel="modulepreload" href="src/props.js"><link rel="modulepreload" href="src/engine.js"><link rel="modulepreload" href="src/audio.js"><link rel="modulepreload" href="vendor/postprocessing/EffectComposer.js"><link rel="modulepreload" href="vendor/postprocessing/UnrealBloomPass.js"></head>
 <body><canvas id="stage" aria-label="3D Irish countryside driving game"></canvas>
 <div id="fx" aria-hidden="true"></div>
 <header><span class="arcade-mark">IRISHCHUD<span>ARCADE</span></span><nav><button id="sound" aria-label="Mute sound" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg></button><button id="pause" aria-label="Pause" hidden><svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg></button></nav></header>
-<section id="lastcall" aria-labelledby="lc-shout"><div class="lc-card"><div class="lc-logo">TURBINE<span>RUN</span></div><div class="lc-scene"><div id="lc-art"></div><div class="lc-shout" id="lc-shout">LAST CALL!!!</div></div><div class="lc-load" id="lc-load" role="progressbar" aria-label="Loading"><i></i></div><button class="primary" id="lc-go" hidden>GET TO THE PUB</button></div></section>
-<section id="intro" hidden><div class="title"><span class="badge">DUNMURRY · 1981</span><h1>TURBINE<span>RUN</span></h1></div><div class="launch"><button class="primary" id="start">GO</button><div class="keys" aria-hidden="true"><span>← →</span><span>↑</span><span>↓</span><span>⇧</span></div></div></section>
+<section id="lastcall" aria-labelledby="lc-shout"><div class="lc-card">
+  <div class="lc-logo" aria-label="Turbine Run"><span class="lc-t">TURBINE</span><span class="lc-r">RUN</span></div>
+  <div class="lc-scene">
+    <!-- Baked from tools/barman.html with the game's own models; see README. -->
+    <div class="lc-art"><img src="img/lastcall-bar.webp" width="960" height="800" alt="The barman roars last orders, ringing a brass bell behind a bar of pints"><img class="lc-head" src="img/lastcall-head.webp" width="960" height="800" alt=""><img class="lc-arm" src="img/lastcall-arm.webp" width="960" height="800" alt=""><svg class="lc-ring" viewBox="0 0 60 60" aria-hidden="true"><path d="M14 18q-8 8-4 20M6 10q-12 14-4 32M44 10q9 8 6 22M52 2q14 14 6 34"/></svg></div>
+    <div class="lc-shout" id="lc-shout">LAST CALL!!!</div>
+  </div>
+  <div class="lc-load" id="lc-load" role="progressbar" aria-label="Loading"><i></i><span>WARMING UP THE TURBINE</span></div><button class="primary" id="lc-go" hidden><span>GET TO THE PUB</span></button>
+</div></section>
+<section id="intro" hidden><div class="title"><span class="badge">DUNMURRY · 1981</span><h1>TURBINE<span>RUN</span></h1></div><div class="launch"><button class="primary" id="start"><span>GO</span></button><div class="keys" aria-hidden="true"><span>← →</span><span>↑</span><span>↓</span><span>⇧</span></div></div></section>
 <section id="hud" aria-label="Game status" hidden>
-  <div class="hud-top"><div class="pill" id="pint-pill"><i class="pint-icon"></i><b id="pints">0</b></div><div class="route"><div id="route-fill"></div><i class="pub-icon"></i></div></div>
-  <div class="lives" id="hearts" aria-label="Three bodywork points"><i></i><i></i><i></i></div>
-  <div class="speed" id="speedo"><b id="speed">72</b><small>MPH</small></div>
-  <button id="jet" class="jet" aria-label="Jet boost"><span class="cells"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></button>
+  <div class="route" aria-label="Distance to the pub"><div id="route-fill"></div><i class="pub-icon"></i></div>
+  <div class="stats"><span class="pints"><i class="pint-icon"></i><b id="pints">0</b></span><span class="lives" id="hearts" aria-label="Three bodywork points"><i></i><i></i><i></i></span></div>
+  <button id="jet" class="jet" aria-label="Jet boost"><span class="ring"></span><span class="speed" id="speedo"><b id="speed">72</b><small>MPH</small></span><svg class="bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></button>
 </section>
 <div id="gesture" aria-hidden="true" hidden><i class="g-left"></i><i class="g-up"></i><i class="g-right"></i><i class="g-down"></i></div>
 <div id="notice" role="status" aria-live="polite"></div>
 <section id="result" hidden role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="result-card"><h2 id="result-title"></h2><div id="result-stats"></div><button id="again" class="primary">AGAIN</button></div></section>
 <div id="error" hidden role="alert"><h2>Engine trouble.</h2><p>This game needs WebGL. Try a browser with hardware acceleration enabled.</p></div><noscript>This game needs JavaScript.</noscript>
-<script type="module" src="src/lastcall.js"></script><script type="module" src="src/main.js"></script></body></html>
+<script type="module" src="src/main.js"></script></body></html>

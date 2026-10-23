@@ -4,9 +4,9 @@ A three-lane jet DeLorean runner for **www.irishchud.com**. Neon Irish dusk, a c
 
 ## Run
 
-Serve this directory with `python3 -m http.server 8080`, then visit `http://localhost:8080`. Needs WebGL2. No build step. Three.js 0.180.0 and its bloom post-processing passes are vendored under `vendor/` with the MIT license; there are no runtime CDN requests.
+Serve this directory with `python3 -m http.server 8080`, then visit `http://localhost:8080`. Needs WebGL2. No build step. Three.js 0.180.0 and its bloom post-processing passes are vendored under `vendor/` with the MIT license, and the Bungee and Chakra Petch fonts under `vendor/fonts/` with their SIL Open Font License; there are no runtime CDN requests.
 
-First load opens on the barman ringing LAST CALL; the button goes straight into the run. Finishing shows the leprechaun outside the Turbine Arms chugging pint after pint.
+First load opens on the barman ringing LAST CALL. He is low-poly like the rest of the game but pre-rendered into three small WebP layers (bar, head, bell arm) so he shows before Three.js has downloaded; a loading bar holds the button's place until the first frame has drawn, and the button goes straight into the run. Finishing shows the leprechaun outside the Turbine Arms chugging pint after pint.
 
 ## Controls
 
@@ -15,7 +15,7 @@ First load opens on the barman ringing LAST CALL; the button goes straight into 
 | Change lane | swipe left or right | arrow keys, A, D |
 | Jump | swipe up | up arrow, W, Space |
 | Slam down from the air | swipe down | down arrow, S |
-| Jet boost | double tap, or the bolt gauge | Shift, B, E |
+| Jet boost | double tap, or the jet dial | Shift, B, E |
 | Pause | pause icon | P, Escape |
 | Sound | speaker icon | M |
 
@@ -38,6 +38,9 @@ Sound starts at the first tap or key press. The music is "The Irish Washerwoman"
 - `src/models.js`: the car, livestock, tractor, pint, turbine, pub, tree and leprechaun.
 - `src/props.js`: gantries, cottages, neon shamrocks, the round tower, blade transporters and tankers.
 - `src/audio.js`: engine sound, effects and music, all Web Audio.
+- `tools/barman.html`, `tools/bake-barman.mjs`: the LAST CALL art. `createBarman` in `src/models.js` is posed behind a bar and rendered in headless Chrome. To re-bake, serve the repo root and run `node tools/bake-barman.mjs http://localhost:8080/tools/barman.html img`; if the pose changes, copy the printed pivots into `.lc-head` and `.lc-arm` in `src/style.css`.
+
+The HUD is three pieces: a hairline to the pub along the top, pints and hearts top left, and the jet dial bottom right, which shows the speed inside a ring of pint fuel and fires the jet when tapped.
 - `src/main.js`: input, game screens and the HUD.
 
 `npm test` runs the engine and model tests with Node 18 or later. They cover jump physics, slams, flips, ramps, tankers, side blocking, boost ramming, frame-rate independence, course fairness over 200 seeds and an autopilot that finishes five seeded courses.

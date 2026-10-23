@@ -100,7 +100,7 @@ canvas.addEventListener('pointercancel', () => { touch = null; });
 document.addEventListener('visibilitychange', () => { if (document.hidden && game.mode === 'playing') pause(); });
 addEventListener('resize', () => scene?.resize());
 
-const cells = [...document.querySelectorAll('#jet .cells i')], hearts = [...document.querySelectorAll('#hearts i')];
+const hearts = [...document.querySelectorAll('#hearts i')];
 let gestureShown = false;
 function frame(milliseconds) {
   const dt = last ? Math.min(.05, (milliseconds - last) / 1000) : 1 / 60;
@@ -121,6 +121,7 @@ function frame(milliseconds) {
     if (event === 'slam') flash('slam');
   }
   if (before === 'playing' && game.mode !== before) finish();
+  document.body.classList.toggle('in-run', game.mode === 'playing');
   const out = scene?.render(game, dt);
   if (out) {
     ready();
@@ -134,7 +135,8 @@ function frame(milliseconds) {
     hearts.forEach((h, i) => h.classList.toggle('lost', i >= game.lives));
     $('hearts').setAttribute('aria-label', `${game.lives} bodywork points`);
     $('pints').textContent = game.pints;
-    cells.forEach((c, i) => c.classList.toggle('full', game.boost > 0 ? i < Math.ceil(game.boost / 3 * cells.length) : i < game.fuel));
+    // The dial's ring fills with pints, then drains while the jet fires.
+    $('jet').style.setProperty('--fill', game.boost > 0 ? (game.boost / 3).toFixed(3) : String(Math.min(1, game.fuel / FUEL_PER_BOOST)));
     $('jet').classList.toggle('ready', game.fuel >= FUEL_PER_BOOST && game.boost <= 0);
     $('jet').classList.toggle('firing', game.boost > 0);
     document.body.classList.toggle('boosting', game.boost > 0);

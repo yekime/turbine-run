@@ -420,3 +420,54 @@ export function createLeprechaun(T){
   box(character,gold,[.12,.105,.035],[0,1.59,-.276]);
   character.userData={legs,arms,dimensions:{width:.85,height:1.88,length:.52}};return character;
 }
+
+/** The barman ringing last orders, waist up behind the bar. Faces -Z like everything else.
+ * userData.head and userData.bellArm are separate groups so the title card can animate them. */
+export function createBarman(T){
+  const {mat,box,sphere,cylinder}=kit(T);const man=new T.Group();
+  const shirt=mat('#f3eee4'),vest=mat('#17834a'),vestEdge=mat('#0e5a36'),skin=mat('#f1b48a'),flush=mat('#e88e74'),ginger=mat('#cf5f1f'),gingerDark=mat('#9e4116');
+  const gold=mat('#ffd15a',{metalness:.6,roughness:.35}),red=mat('#d8213f'),apron=mat('#231c2b'),eyeWhite=mat('#fbf7ef'),pupil=mat('#1b1f24'),mouth=mat('#3a0c14'),tongue=mat('#e2566b'),teeth=mat('#fffaf0');
+  const brass=mat('#ffc24a',{metalness:.35,roughness:.3,emissive:'#7a4a08',emissiveIntensity:.35}),handle=mat('#5a2e1a');
+  // Body: barrel chest, belly, a green waistcoat over rolled shirt sleeves, apron at the waist.
+  cylinder(man,shirt,.40,.44,.62,[0,1.22,0],[0,0,0],9);
+  sphere(man,shirt,[.47,.30,.38],[0,1.50,0]);
+  sphere(man,shirt,[.39,.36,.37],[0,1.06,-.02]);                                        // belly
+  // The waistcoat wraps round with the front open (cylinder theta 0 faces +Z, the back).
+  const coat=(rt,rb,h,y,material,gap)=>{const m=new T.Mesh(new T.CylinderGeometry(rt,rb,h,14,1,true,Math.PI+gap,Math.PI*2-gap*2),material);m.position.y=y;m.castShadow=m.receiveShadow=true;material.side=T.DoubleSide;man.add(m);return m;};
+  coat(.43,.47,.66,1.22,vest,.42);coat(.45,.45,.06,.92,vestEdge,.42);
+  for(let i=0;i<4;i++)sphere(man,gold,[.026,.026,.02],[-.18+i*.005,1.42-i*.13,-.41+i*.01]);
+  box(man,apron,[.92,.42,.62],[0,.78,0]);box(man,apron,[.14,.06,.66],[0,.98,0]);
+  // Neck, bow tie.
+  cylinder(man,skin,.14,.16,.18,[0,1.70,0],[0,0,0],8);
+  for(const side of[-1,1])box(man,red,[.13,.09,.05],[side*.075,1.62,-.27],[0,0,side*.35]);
+  sphere(man,red,[.04,.04,.035],[0,1.62,-.29]);
+  // Head: in its own group, pivoting at the neck.
+  const head=new T.Group();head.position.set(0,1.74,0);man.add(head);
+  sphere(head,skin,[.27,.31,.27],[0,.20,0],2);
+  for(const side of[-1,1]){sphere(head,skin,[.06,.09,.05],[side*.27,.20,0]);sphere(head,ginger,[.10,.16,.20],[side*.22,.24,.04]);}
+  sphere(head,ginger,[.25,.12,.20],[0,.20,.15]);                                      // horseshoe of hair at the back
+  sphere(head,ginger,[.28,.22,.22],[0,-.04,-.08]);                                    // big beard
+  sphere(head,gingerDark,[.20,.12,.14],[0,-.15,-.10]);
+  sphere(head,mouth,[.11,.09,.07],[0,.0,-.29]);                                        // roaring mouth, out through the beard
+  box(head,teeth,[.13,.024,.03],[0,.06,-.345]);sphere(head,tongue,[.06,.03,.035],[0,-.045,-.34]);
+  for(const side of[-1,1])sphere(head,ginger,[.14,.055,.08],[side*.1,.1,-.3],1);     // moustache
+  sphere(head,flush,[.075,.07,.08],[0,.16,-.29]);                                      // nose
+  for(const side of[-1,1]){
+    sphere(head,flush,[.055,.04,.03],[side*.15,.12,-.23]);
+    sphere(head,eyeWhite,[.05,.042,.03],[side*.095,.25,-.245]);sphere(head,pupil,[.024,.026,.02],[side*.09,.248,-.27]);
+    box(head,gingerDark,[.12,.035,.04],[side*.10,.31,-.25],[0,0,side*.38]);           // brows down, roaring
+  }
+  // Left hand on the tap.
+  const tapArm=new T.Group();tapArm.position.set(.44,1.48,0);man.add(tapArm);tapArm.quaternion.setFromUnitVectors(new T.Vector3(0,-1,0),new T.Vector3(.5,.05,-.86).normalize());
+  cylinder(tapArm,shirt,.12,.10,.30,[0,-.14,0],[0,0,0],8);cylinder(tapArm,skin,.085,.075,.32,[0,-.43,0],[0,0,0],8);sphere(tapArm,skin,[.09,.10,.09],[0,-.62,0]);
+  // Right arm up with the hand bell, in its own group pivoting at the shoulder.
+  const bellArm=new T.Group();bellArm.position.set(-.44,1.50,0);man.add(bellArm);bellArm.rotation.set(-.15,0,-2.35);
+  cylinder(bellArm,shirt,.13,.11,.32,[0,-.15,0],[0,0,0],8);
+  const fore=new T.Group();fore.position.set(0,-.32,0);fore.rotation.z=-.6;bellArm.add(fore);
+  cylinder(fore,skin,.09,.08,.34,[0,-.17,0],[0,0,0],8);sphere(fore,skin,[.10,.11,.10],[0,-.36,0]);
+  const bell=new T.Group();bell.position.set(0,-.40,0);bell.rotation.z=.45;bell.scale.setScalar(1.35);fore.add(bell);
+  cylinder(bell,handle,.035,.04,.22,[0,-.10,0],[0,0,0],8);
+  cylinder(bell,brass,.07,.20,.24,[0,-.32,0],[0,0,0],12);cylinder(bell,brass,.21,.21,.03,[0,-.44,0],[0,0,0],12);
+  sphere(bell,brass,[.045,.045,.045],[0,-.47,0]);
+  man.userData={head,bellArm,dimensions:{width:1.4,height:2.2,length:.8}};return man;
+}
