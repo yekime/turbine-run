@@ -36,12 +36,12 @@ function notice(message) {
 }
 function start() {
   if (!scene) return;
-  game = createGame(); game.mode = 'playing';
+  game = createGame(); game.mode = 'intro'; game.introTime = 0;
   $('intro').hidden = true; $('result').hidden = true;
-  $('hud').hidden = false; $('controls').hidden = false; $('pause').hidden = false;
+  $('hud').hidden = true; $('controls').hidden = true; $('pause').hidden = true;
   $('pause').textContent = 'Ⅱ';
   document.activeElement?.blur();
-  sound('start'); notice('NEXT STOP: THE TURBINE ARMS');
+  clearTimeout(noticeTimer); $('notice').textContent = '';
 }
 function showResult(label, title, copy, button) {
   $('result-label').textContent = label;
@@ -119,6 +119,14 @@ addEventListener('resize', () => scene?.resize());
 function frame(milliseconds) {
   const dt = last ? Math.min(.05, (milliseconds - last) / 1000) : 1 / 60;
   last = milliseconds;
+  if (game.mode === 'intro' && !document.hidden) {
+    game.introTime = Math.min(3, game.introTime + dt);
+    if (game.introTime >= 3) {
+      game.mode = 'playing';
+      $('hud').hidden = false; $('controls').hidden = false; $('pause').hidden = false;
+      sound('start');
+    }
+  }
   const before = game.mode;
   for (const event of step(game, dt)) { sound(event); if (event === 'hit') notice('MIND THE BODYWORK!'); }
   if (before === 'playing' && game.mode !== before) finish();

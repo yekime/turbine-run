@@ -101,7 +101,11 @@ export function createCar(T) {
     pipe(body,steel,[side*.68,.91,1.61],[side*.68,.71,1.90],.075);
     box(body,amber,[.12,.08,.39],[side*.6,.99,1.09]);
   }
-  car.userData={wheels,jet,flame,body,doors:doors.reverse(),dimensions:{width:2.20,height:1.56,length:4.1}};
+  // Small Irish tricolour on the rear-left quarter; green sits at the hoist.
+  const flag=new T.Group();flag.position.set(-.94,0,1.63);body.add(flag);
+  cylinder(flag,lightSteel,.024,.024,1.19,[0,1.49,0],[0,0,0],6);
+  for(const [i,color]of ['#159b59','#fffaf0','#f28a35'].entries())box(flag,mat(color),[.20,.35,.025],[.11+i*.20,1.87,0]);
+  car.userData={wheels,jet,flame,body,flag,doors:doors.reverse(),dimensions:{width:2.20,height:1.56,length:4.1}};
   return car;
 }
 
@@ -225,4 +229,28 @@ export function createTree(T){
   cylinder(group,bark,.14,.23,1.7,[0,.86,0],[0,0,.05],7);
   sphere(group,leaf,[.94,.96,.82],[0,2.1,0]);sphere(group,sun,[.69,.76,.66],[-.48,2.48,-.12]);sphere(group,leaf,[.66,.72,.64],[.59,2.23,.07]);
   group.userData.dimensions={width:2.5,height:3.25,length:1.8};return group;
+}
+
+
+export function createLeprechaun(T){
+  const {mat,box,sphere,cylinder}=kit(T);const character=new T.Group();
+  const green=mat('#17834a'),darkGreen=mat('#115c3c'),skin=mat('#ffd3a2'),ginger=mat('#d86d27'),black=mat('#26312d'),gold=mat('#ffd15a'),white=mat('#fff9db');
+  const legs=[],arms=[];
+  for(const side of [-1,1]){
+    const leg=new T.Group();leg.position.set(side*.13,.57,0);character.add(leg);legs.push(leg);
+    box(leg,darkGreen,[.20,.40,.23],[0,-.19,0]);box(leg,black,[.23,.14,.37],[0,-.48,-.06]);
+    const arm=new T.Group();arm.position.set(side*.30,1.04,0);character.add(arm);arms.push(arm);
+    box(arm,green,[.17,.33,.20],[side*.035,-.15,0]);sphere(arm,skin,[.115,.12,.11],[side*.04,-.36,0]);
+  }
+  box(character,green,[.53,.51,.34],[0,.83,0]);box(character,white,[.15,.30,.02],[0,.93,-.181]);
+  box(character,black,[.55,.08,.36],[0,.66,0]);box(character,gold,[.12,.10,.035],[0,.66,-.2]);
+  sphere(character,skin,[.25,.26,.23],[0,1.29,0]);
+  sphere(character,ginger,[.27,.24,.16],[0,1.12,-.14]);
+  for(const side of[-1,1]){sphere(character,ginger,[.09,.17,.15],[side*.21,1.24,-.06]);box(character,black,[.044,.052,.03],[side*.087,1.34,-.224]);}
+  sphere(character,skin,[.075,.065,.08],[0,1.25,-.27]);
+  cylinder(character,darkGreen,.36,.36,.08,[0,1.52,0],[0,0,0],10);
+  cylinder(character,green,.24,.28,.32,[0,1.72,0],[0,0,0],10);
+  cylinder(character,black,.272,.278,.07,[0,1.59,0],[0,0,0],10);
+  box(character,gold,[.12,.105,.035],[0,1.59,-.276]);
+  character.userData={legs,arms,dimensions:{width:.85,height:1.88,length:.52}};return character;
 }

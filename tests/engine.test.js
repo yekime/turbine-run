@@ -54,3 +54,13 @@ test('pause freezes timers and controls; invalid delta cannot corrupt the run',(
   steer(g,1);assert(!jump(g));assert(!boost(g));step(g,.05);assert.equal(JSON.stringify(g),snapshot);
   g.mode='playing';const active=JSON.stringify(g);for(const dt of [-1,0,NaN,Infinity])step(g,dt);assert.equal(JSON.stringify(g),active);
 });
+
+test('resolved obstacles and missed pints remain distinct from collected pints', () => {
+  const g = createGame(); g.mode = 'playing';
+  g.events = [{z: 1, lane: 0, type: 'pint'}, {z: 1, lane: -1, type: 'pint'}, {z: 1, lane: 1, type: 'tractor'}];
+  step(g, .05);
+  assert(g.events.every(e => e.done));
+  assert.equal(g.events[0].collected, true);
+  assert.equal(g.events[1].collected, undefined);
+  assert.equal(g.events[2].collected, undefined);
+});

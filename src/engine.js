@@ -73,6 +73,7 @@ export function step(g, dt) {
       e.done = true;
       if (Math.abs(e.lane - g.x) >= .57) continue;
       if (e.type === 'pint') {
+        e.collected = true;
         g.pints++; g.fuel = Math.min(5, g.fuel + 1); sounds.push('pint');
       } else if (g.invincible <= EPSILON && !(e.type !== 'tractor' && jumpHeight(g) >= JUMP_CLEARANCE)) {
         g.lives--; g.hits++; g.boost = 0; g.invincible = 2; sounds.push('hit');

@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import {batchStatic} from './scene-utils.js';
 import {jumpHeight as normalizedJumpHeight,JUMP_DURATION,COLLISION_OFFSET,LENGTH} from './engine.js';
-import {createCar,createCow,createSheep,createTractor,createPint,createTurbine,createPub,createTree} from './models.js';
+import {createCar,createCow,createSheep,createTractor,createPint,createTurbine,createPub,createTree,createLeprechaun} from './models.js';
 
 // A small, self-contained toy world. Simulation distances are decimetres;
 // the renderer translates them to metres, keeping the collision line at z=0.
@@ -47,6 +47,10 @@ export function createRenderer(canvas){
   for(const part of [...car.userData.wheels,...car.userData.doors])batchStatic(THREE,part);
   batchStatic(THREE,car.userData.jet,[car.userData.flame]);batchStatic(THREE,car.userData.flame);
   scene.add(car);
+  const driver=createLeprechaun(THREE);
+  batchStatic(THREE,driver,[...driver.userData.legs,...driver.userData.arms]);
+  for(const limb of [...driver.userData.legs,...driver.userData.arms])batchStatic(THREE,limb);
+  driver.visible=false;scene.add(driver);
   // Contact shadow remains grounded while the jet lifts the car.
   const shadowCanvas=document.createElement('canvas');shadowCanvas.width=shadowCanvas.height=64;const ctx=shadowCanvas.getContext('2d');const gradient=ctx.createRadialGradient(32,32,4,32,32,32);gradient.addColorStop(0,'rgba(18,47,46,.45)');gradient.addColorStop(1,'rgba(18,47,46,0)');ctx.fillStyle=gradient;ctx.fillRect(0,0,64,64);const shadowTexture=new THREE.CanvasTexture(shadowCanvas);const contact=new THREE.Mesh(new THREE.PlaneGeometry(3.3,5),new THREE.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false}));contact.rotation.x=-Math.PI/2;contact.position.y=.075;scene.add(contact);
   const pub=batchStatic(THREE,createPub(THREE));pub.rotation.y=Math.PI;pub.scale.setScalar(1.35);scene.add(pub);pub.visible=false;
@@ -58,7 +62,7 @@ export function createRenderer(canvas){
   function resize(){width=canvas.clientWidth||innerWidth;height=canvas.clientHeight||innerHeight;renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();}resize();
   function release(object){object.traverse(child=>{child.geometry?.dispose();const materials=Array.isArray(child.material)?child.material:[child.material];materials.forEach(material=>{if(material){material.map?.dispose();material.dispose();}})});scene.remove(object);}
   function render(g,dt){
-    dt=clamp(dt||.016,0,.05);const moving=g.mode==='playing'||(g.mode==='ready'&&!reducedMotion);if(moving)elapsed+=dt;const ready=g.mode==='ready';if(ready&&!reducedMotion)titleTravel+=dt*4.2;const travel=ready?titleTravel:g.distance*.1;const boostActive=g.boost>0;const won=g.mode==='won';
+    dt=clamp(dt||.016,0,.05);const moving=g.mode==='playing';if(moving)elapsed+=dt;const ready=g.mode==='ready',intro=g.mode==='intro',parked=ready||intro;const introTime=clamp(g.introTime||0,0,3);const travel=parked?0:g.distance*.1;const boostActive=g.boost>0;const won=g.mode==='won';
     if(eventSource!==g.events){for(const object of events.values())release(object);events.clear();eventSource=g.events;previousPints=g.pints;landing=0;previousJump=false;}
     const wrap=(z,span=VIEW)=>((z+travel+span*100)%span)-span+12;
     for(let i=0;i<220;i++){const side=i%2?1:-1;const row=Math.floor(i/2);dummy.position.set(side*(6.4+noise(row)*.08),.3+(row%2)*.015,wrap(-row*1.36));dummy.rotation.set(0,noise(i)*.12-.06,0);dummy.scale.set(1, .85+noise(i)*.25,1);dummy.updateMatrix();wall.setMatrixAt(i,dummy.matrix);}wall.instanceMatrix.needsUpdate=true;
@@ -66,20 +70,29 @@ export function createRenderer(canvas){
     for(let i=0;i<50;i++){dummy.position.set(i%2?-1.6:1.6,.055,wrap(-Math.floor(i/2)*6.1));dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);dummy.updateMatrix();marks.setMatrixAt(i,dummy.matrix);}marks.instanceMatrix.needsUpdate=true;
     for(let i=0;i<100;i++){dummy.position.set((i%2?1:-1)*(8.8+noise(i)*3.2),.18,wrap(-i*1.8));dummy.updateMatrix();flowers.setMatrixAt(i,dummy.matrix);}flowers.instanceMatrix.needsUpdate=true;
     for(const item of scenery){item.object.position.z=wrap(item.base);if(item.kind==='turbine'&&item.object.userData.rotor&&moving){const proximity=1-clamp(Math.abs(item.object.position.z)/28,0,1);item.object.userData.rotor.rotation.z+=dt*(.55+proximity*4)*(boostActive?1.6:1);}}
-    const needed=new Set();if(!ready)for(const e of g.events){const distance=(e.z-g.distance-COLLISION_OFFSET)*.1;if(e.done||distance< -4||distance>110)continue;needed.add(e);let object=events.get(e);if(!object){object=batchStatic(THREE,(builders[e.type]||createSheep)(THREE));scene.add(object);events.set(e,object);}object.position.set(e.lane*LANE,0,-distance);if(e.type==='pint'){object.rotation.y=elapsed*1.6;object.position.y=.45+Math.sin(elapsed*3+e.z)*.12;}}
+    const needed=new Set();if(!parked)for(const e of g.events){const distance=(e.z-g.distance-COLLISION_OFFSET)*.1;if(e.collected||distance< -25||distance>110)continue;needed.add(e);let object=events.get(e);if(!object){object=batchStatic(THREE,(builders[e.type]||createSheep)(THREE));scene.add(object);events.set(e,object);}object.position.set(e.lane*LANE,0,-distance);if(e.type==='pint'){object.rotation.y=elapsed*1.6;object.position.y=.45+Math.sin(elapsed*3+e.z)*.12;}}
     for(const [e,object]of events)if(!needed.has(e)){release(object);events.delete(e);}
     const jumping=g.jump>0;const jumpProgress=jumping?clamp((JUMP_DURATION-g.jump)/JUMP_DURATION,0,1):0;const jumpHeight=normalizedJumpHeight(g)*2.65;if(previousJump&&!jumping)landing=1;previousJump=jumping;landing=Math.max(0,landing-dt*4);
-    const desiredX=ready?1.0:g.x*LANE;car.position.x=damp(car.position.x,desiredX,18,dt);car.position.z=damp(car.position.z,ready?-3.5:0,5,dt);car.position.y=jumpHeight+(moving?Math.sin(elapsed*23)*.015:0);const steering=ready?Math.sin(elapsed*.5)*.035:clamp((g.lane-g.x)*.7,-.42,.42);car.rotation.y=damp(car.rotation.y,-steering,10,dt);car.rotation.z=damp(car.rotation.z,-steering*.33,9,dt);car.rotation.x=damp(car.rotation.x,jumping?Math.cos(jumpProgress*Math.PI)*-.16:landing*.08,12,dt);car.scale.y=1-landing*.09;car.scale.x=1+landing*.035;
+    const desiredX=parked?1.0:g.x*LANE;car.position.x=parked?1:damp(car.position.x,desiredX,18,dt);car.position.z=parked?-3.5:damp(car.position.z,0,5,dt);car.position.y=jumpHeight+(moving?Math.sin(elapsed*23)*.015:0);const steering=parked?0:clamp((g.lane-g.x)*.7,-.42,.42);car.rotation.y=damp(car.rotation.y,-steering,10,dt);car.rotation.z=damp(car.rotation.z,-steering*.33,9,dt);car.rotation.x=damp(car.rotation.x,jumping?Math.cos(jumpProgress*Math.PI)*-.16:landing*.08,12,dt);car.scale.y=1-landing*.09;car.scale.x=1+landing*.035;
     if(car.userData.wheels&&moving)for(const wheel of car.userData.wheels)wheel.rotation.x-=dt*(boostActive?30:20)*(ready?.35:1);
     if(car.userData.flame){car.userData.flame.visible=jumping||boostActive;car.userData.flame.scale.set(1+Math.sin(elapsed*63)*.08,1+Math.sin(elapsed*53)*.08,(boostActive?1.7:1.15)+Math.sin(elapsed*80)*.2);}
     if(car.userData.jetRotor&&moving)car.userData.jetRotor.rotation.z+=dt*(boostActive?40:12);
     boostLight.intensity=boostActive||jumping?12:0;
-    if(car.userData.doors)for(let i=0;i<car.userData.doors.length;i++){const door=car.userData.doors[i];door.rotation.z=damp(door.rotation.z,won?(i===0?1:-1)*1.22:0,3,dt);}
+    if(car.userData.doors)for(let i=0;i<car.userData.doors.length;i++){const door=car.userData.doors[i];const entryOpen=intro&&i===1?THREE.MathUtils.smoothstep(introTime,1.1,1.65)*(1-THREE.MathUtils.smoothstep(introTime,2.45,2.98)):0;door.rotation.z=intro?-entryOpen*1.3:damp(door.rotation.z,won?(i===0?1:-1)*1.22:0,7,dt);}
+    driver.visible=intro&&introTime<2.55;
+    if(intro){
+      const walk=clamp(introTime/1.6,0,1),enter=THREE.MathUtils.smoothstep(introTime,1.75,2.55);
+      driver.position.set(THREE.MathUtils.lerp(-6.5,car.position.x-1.05,walk)+enter*.68,Math.sin(enter*Math.PI)*.30,car.position.z+.05);
+      driver.rotation.y=-Math.PI/2;driver.scale.setScalar(1-enter*.68);
+      const stride=introTime<1.6?Math.sin(introTime*15)*.45:0;
+      driver.userData.legs.forEach((limb,i)=>limb.rotation.x=stride*(i?1:-1));
+      driver.userData.arms.forEach((limb,i)=>limb.rotation.x=stride*(i?-1:1));
+    }
     if(g.invincible>0&&g.mode==='playing'){car.visible=Math.floor(elapsed*14)%4!==0;}else car.visible=true;
     contact.position.x=car.position.x;contact.position.z=car.position.z;contact.scale.setScalar(1-jumpHeight*.10);contact.material.opacity=1-jumpHeight*.16;
     if(g.pints>previousPints)ringAge=0;previousPints=g.pints;ringAge+=dt;ring.visible=ringAge<.5;ring.position.set(car.position.x,.2+ringAge*2,0);ring.scale.setScalar(.7+ringAge*2);ring.material.opacity=Math.max(0,1-ringAge*2);
-    const pubDistance=(LENGTH-g.distance)*.1;pub.visible=!ready&&pubDistance<100;pub.position.set(0,0,-Math.max(14,pubDistance));
-    const portrait=width/height<.85;const targetFov=(portrait?63:55)+(boostActive&&!reducedMotion?7:0);camera.fov=damp(camera.fov,targetFov,3,dt);camera.updateProjectionMatrix();cameraX=damp(cameraX,ready?3.5:g.x*.43,3,dt);camera.position.set(cameraX,portrait?8.4:5.7,portrait?15.5:10.5);camera.lookAt(ready?-.8:g.x*.3,portrait?.55:.65,portrait?-11:-16);renderer.render(scene,camera);
+    const pubDistance=(LENGTH-g.distance)*.1;pub.visible=!parked&&pubDistance<100;pub.position.set(0,0,-Math.max(14,pubDistance));
+    const portrait=width/height<.85;const targetFov=(portrait?63:55)+(boostActive&&!reducedMotion?7:0);camera.fov=damp(camera.fov,targetFov,3,dt);camera.updateProjectionMatrix();cameraX=parked?3.5:damp(cameraX,g.x*.43,3,dt);camera.position.set(cameraX,portrait?8.4:5.7,portrait?15.5:10.5);camera.lookAt(parked?-.8:g.x*.3,portrait?.55:.65,portrait?-11:-16);renderer.render(scene,camera);
   }
   function dispose(){scene.traverse(object=>{object.geometry?.dispose();for(const material of Array.isArray(object.material)?object.material:[object.material])material?.dispose();});shadowTexture.dispose();renderer.dispose();}
   return{resize,render,dispose};
