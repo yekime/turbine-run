@@ -46,65 +46,230 @@ function kit(T) {
   return {mat,mesh,box,sphere,cylinder,pipe,prism,wheel};
 }
 
+/** Private DMC-12 helpers: closed lofts between convex rings, auto-oriented outward. */
+function carKit(T, mesh) {
+  const loft = (parent, material, rings, origin = [0, 0, 0]) => {
+    const tris = [], n = rings[0].length, f = rings[0], l = rings[rings.length - 1];
+    for (let i = 0; i < rings.length - 1; i++) {
+      const a = rings[i], b = rings[i + 1];
+      for (let j = 0; j < n; j++) { const k = (j + 1) % n; tris.push(a[j], b[j], b[k], a[j], b[k], a[k]); }
+    }
+    for (let j = 1; j < n - 1; j++) tris.push(f[0], f[j + 1], f[j], l[0], l[j], l[j + 1]);
+    let volume = 0;
+    for (let t = 0; t < tris.length; t += 3) {
+      const [a, b, c] = [tris[t], tris[t + 1], tris[t + 2]];
+      volume += a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0]);
+    }
+    const order = volume < 0 ? [0, 2, 1] : [0, 1, 2], positions = [];
+    for (let t = 0; t < tris.length; t += 3) for (const o of order) { const p = tris[t + o]; positions.push(p[0] - origin[0], p[1] - origin[1], p[2] - origin[2]); }
+    const geometry = new T.BufferGeometry(); geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3)); geometry.computeVertexNormals();
+    const object = mesh(geometry, material); parent.add(object); return object;
+  };
+  const slab = (parent, material, points, offset, origin) => loft(parent, material, [points, points.map(p => [p[0] + offset[0], p[1] + offset[1], p[2] + offset[2]])], origin);
+  const table = (rows, z) => {
+    if (z <= rows[0][0]) return rows[0][1];
+    for (let i = 1; i < rows.length; i++) if (z <= rows[i][0]) { const [z0, v0] = rows[i - 1], [z1, v1] = rows[i]; return v0 + (v1 - v0) * (z - z0) / (z1 - z0); }
+    return rows[rows.length - 1][1];
+  };
+  return { loft, slab, table };
+}
+
+/** DMC-12 wheel: tyre with sidewall bulge, turbine-slot rim, hub. Spins on rotation.x. */
+function dmcWheel(T, k, parent, x, z, radius, width, rim, rubber) {
+  const { mesh, box, cylinder } = k, side = Math.sign(x), face = width / 2, half = Math.PI / 2;
+  const group = new T.Group(); group.position.set(x, radius, z); parent.add(group);
+  const tread = radius / Math.cos(Math.PI / 18);
+  cylinder(group, rubber, tread, tread, width, [0, 0, 0], [0, 0, half], 18);
+  const [inner, outer] = [radius * .98, radius * .84];
+  cylinder(group, rubber, side > 0 ? inner : outer, side > 0 ? outer : inner, .035, [side * (face + .017), 0, 0], [0, 0, half], 18);
+  cylinder(group, rim, radius * .64, radius * .64, .03, [side * (face + .02), 0, 0], [0, 0, half], 18);
+  const lip = mesh(new T.TorusGeometry(radius * .64, .017, 4, 18), rim, side * (face + .036), 0, 0); lip.rotation.y = half; group.add(lip);
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI * 2 / 8;
+    box(group, rubber, [.012, radius * .13, radius * .22], [side * (face + .037), Math.sin(a) * radius * .41, Math.cos(a) * radius * .41], [-a + .4 * side, 0, 0]);
+  }
+  cylinder(group, rim, radius * .2, radius * .23, .05, [side * (face + .055), 0, 0], [0, 0, half], 10);
+  cylinder(group, rubber, radius * .08, radius * .08, .02, [side * (face + .085), 0, 0], [0, 0, half], 8);
+  return group;
+}
+
 export function createCar(T) {
-  const {mat,box,cylinder,pipe,prism,wheel}=kit(T);
-  const car=new T.Group(),body=new T.Group();car.add(body);
-  const steel=mat('#b8d2dd',{metalness:.72,roughness:.32}),lightSteel=mat('#e0edf0',{metalness:.62,roughness:.3});
-  const dark=mat('#192630'),tire=mat('#16202a'),glass=mat('#3fd6e8',{metalness:.3,roughness:.12,transparent:true,opacity:.42,depthWrite:false});
-  const red=mat('#ff3d4c',{emissive:'#ff1a3c',emissiveIntensity:3.2}),amber=mat('#ffb74c',{emissive:'#ff8a24',emissiveIntensity:.35});
-  const cyan=mat('#7af5ff',{emissive:'#20d6ff',emissiveIntensity:2}),white=mat('#ffffdc',{emissive:'#fff4bd',emissiveIntensity:2.4});
-  // Stainless wedge: low nose, upright clipped tail, angular glass cabin.
-  prism(body,steel,1.82,[[-1.96,.43],[-1.96,.68],[-.65,.92],[1.78,.87],[1.89,.57],[1.72,.4]]);
-  box(body,dark,[1.79,.14,3.54],[0,.39,-.04]);
-  prism(body,glass,1.50,[[-.91,.88],[-.34,1.49],[.58,1.49],[1.29,.89]]);
-  box(body,lightSteel,[1.53,.09,.92],[0,1.51,.14]);
-  // Rear louvre bank slopes with the back window, black stripes unmistakably DeLorean.
-  for(let i=0;i<6;i++)box(body,dark,[1.52,.065,.11],[0,1.42-i*.085,.68+i*.105],[.68,0,0]);
-  box(body,steel,[1.54,.10,.12],[0,.94,-.92],[.75,0,0]);
-  const doors=[];
-  for(const side of [-1,1]){
-    const door=new T.Group();door.position.set(side*.71,1.48,.1);body.add(door);doors.push(door);
-    box(door,steel,[.07,.59,1.22],[side*.15,-.38,0]);
-    box(door,lightSteel,[.08,.045,1.13],[side*.13,-.11,0]);
-    box(door,dark,[.08,.045,.19],[side*.20,-.30,.30]);
-    box(body,steel,[.24,.10,.20],[side*.93,1.01,-.64]);
-    // Window pillars, lower sill and body side moulding.
-    pipe(body,lightSteel,[side*.75,.89,-.89],[side*.68,1.49,-.34],.04);
-    pipe(body,lightSteel,[side*.72,1.49,.59],[side*.79,.91,1.22],.04);
-    box(body,dark,[.035,.07,3.5],[side*.922,.60,-.03]);
-    box(body,lightSteel,[.06,.11,1.48],[side*.93,.46,0]);
+  const k = kit(T), { mat, mesh, box, cylinder, pipe } = k, { loft, slab, table } = carKit(T, mesh);
+  const car = new T.Group(), body = new T.Group(); car.add(body);
+  const PI = Math.PI;
+  // Brushed stainless, black polyurethane trim, glass the seated leprechaun shows through.
+  const steel = mat('#c3d0d8', { metalness: .42, roughness: .36 }), lightSteel = mat('#e8eff3', { metalness: .38, roughness: .28 });
+  const dark = mat('#161c23', { roughness: .62 }), tire = mat('#14181d', { roughness: .9 });
+  const glass = mat('#3fd6e8', { metalness: .3, roughness: .12, transparent: true, opacity: .42, depthWrite: false });
+  const red = mat('#ff3d4c', { emissive: '#ff1a3c', emissiveIntensity: 3.2 }), amber = mat('#ffb74c', { emissive: '#ff8a24', emissiveIntensity: .35 });
+  const cyan = mat('#7af5ff', { emissive: '#20d6ff', emissiveIntensity: 2 }), white = mat('#ffffdc', { emissive: '#fff4bd', emissiveIntensity: 2.4 });
+  const titanium = mat('#8d7f8f', { metalness: .82, roughness: .3 });
+
+  // --- Stainless shell: one loft of chamfered sections, wheel arches cut as tunnels.
+  const FRONT = { z: -1.25, y: .34, R: .42 }, REAR = { z: 1.17, y: .38, R: .45 }, SILL = .30;
+  const TOP = [[-2.07, .70], [-.80, .91], [-.60, .95], [.62, .965], [1.85, .98], [2.05, .98], [2.07, .965]];
+  const BOTTOM = [[-2.07, .60], [-2.03, SILL], [2.05, SILL], [2.07, .34]];
+  const HALF = [[-2.07, .82], [-1.95, .90], [2.0, .90], [2.07, .86]];
+  const archY = (a, z) => { const d = z - a.z; return Math.abs(d) < a.R ? a.y + Math.sqrt(a.R * a.R - d * d) : 0; };
+  const stations = [-2.07, -2.03, -1.95, -1.85, -.80, -.60, 0, .62, 1.70, 1.85, 2.0, 2.05, 2.07];
+  for (const a of [FRONT, REAR]) {
+    const a0 = Math.asin((SILL - a.y) / a.R);
+    for (let i = 0; i <= 8; i++) stations.push(a.z + a.R * Math.cos(a0 + (PI - 2 * a0) * i / 8));
   }
-  box(body,dark,[1.79,.19,.08],[0,.62,-1.97]);
-  for(const side of [-1,1])for(const offset of [-.14,.14])box(body,white,[.23,.115,.035],[side*.59+offset,.69,-2.02]);
-  box(body,steel,[1.88,.10,.16],[0,.43,-1.94]);
-  box(body,dark,[1.80,.23,.08],[0,.66,1.88]);
-  for(const side of [-1,1]){
-    box(body,red,[.44,.15,.04],[side*.60,.68,1.94]);
-    box(body,amber,[.12,.15,.045],[side*.87,.68,1.94]);
+  stations.sort((p, q) => p - q);
+  const section = z => {
+    const t = table(TOP, z), b = Math.max(table(BOTTOM, z), archY(FRONT, z), archY(REAR, z)), h = table(HALF, z);
+    const lo = Math.min(b + .02, (b + t) / 2), hi = Math.max(t - .06, (b + t) / 2);
+    return [[h, lo, z], [h, hi, z], [h - .09, t, z], [-h + .09, t, z], [-h, hi, z], [-h, lo, z], [-h + .02, b, z], [h - .02, b, z]];
+  };
+  loft(body, steel, stations.map(section));
+  // Dark wheel tubs stop the arch tunnels reading as see-through holes.
+  box(body, dark, [1.36, .44, .86], [0, .535, FRONT.z]);
+  box(body, dark, [1.26, .5, .92], [0, .56, REAR.z]);
+  // Flared arch lips proud of the flanks.
+  for (const a of [FRONT, REAR]) for (const s of [-1, 1]) {
+    const a0 = Math.asin((SILL - a.y) / a.R), rings = [];
+    for (let i = 0; i <= 10; i++) {
+      const ang = a0 + (PI - 2 * a0) * i / 10, c = Math.cos(ang), sn = Math.sin(ang);
+      rings.push([[a.R, .893], [a.R, .925], [a.R + .045, .925], [a.R + .045, .893]].map(([r, x]) => [s * x, a.y + r * sn, a.z + r * c]));
+    }
+    loft(body, lightSteel, rings);
   }
-  box(body,lightSteel,[.42,.13,.05],[0,.56,1.94]);
-  const wheels=[];
-  for(const x of [-.91,.91])for(const z of [-1.17,1.17])wheels.push(wheel(car,x,.36,z,.36,.24,lightSteel,tire));
-  // A large, deliberately over-the-top turbine strapped over the rear deck.
-  const jet=new T.Group();jet.position.set(0,1.12,1.23);body.add(jet);
-  cylinder(jet,dark,.35,.35,1.17,[0,0,0],[Math.PI/2,0,0],12);
-  for(const z of [-.40,.22,.53])cylinder(jet,steel,.39,.39,.11,[0,0,z],[Math.PI/2,0,0],12);
-  cylinder(jet,dark,.29,.32,.15,[0,0,.62],[Math.PI/2,0,0],12);
-  cylinder(jet,cyan,.23,.23,.018,[0,0,.705],[Math.PI/2,0,0],12);
-  const flame=new T.Group();flame.position.set(0,0,.72);jet.add(flame);
-  cylinder(flame,cyan,.025,.22,.85,[0,0,.41],[Math.PI/2,0,0],7);
-  const flameCore=mat('#e5ffff',{emissive:'#a5faff',emissiveIntensity:2.5});
-  cylinder(flame,flameCore,.01,.12,.65,[0,0,.30],[Math.PI/2,0,0],6);
-  for(const side of [-1,1]){
-    pipe(body,steel,[side*.30,1.1,.76],[side*.57,1.05,.76],.075);
-    pipe(body,steel,[side*.57,1.05,.76],[side*.68,.91,1.61],.075);
-    pipe(body,steel,[side*.68,.91,1.61],[side*.68,.71,1.90],.075);
-    box(body,amber,[.12,.08,.39],[side*.6,.99,1.09]);
+
+  // --- Flanks: black sill, rub strip at bumper height, door aperture, side intake, markers.
+  for (const s of [-1, 1]) {
+    box(body, dark, [.03, .10, 1.55], [s * .913, .335, -.05]);
+    box(body, dark, [.014, .065, .28], [s * .906, .5325, -1.80]);
+    box(body, dark, [.014, .065, .38], [s * .906, .5325, 1.80]);
+    box(body, dark, [.008, .55, 1.38], [s * .902, .675, -.06]);
+    box(body, dark, [.008, .10, .22], [s * .902, .85, .79]);
+    for (const y of [.83, .865]) box(body, steel, [.012, .012, .20], [s * .908, y, .79]);
+    box(body, amber, [.012, .04, .10], [s * .905, .60, -1.86]);
+    box(body, red, [.012, .04, .10], [s * .905, .62, 1.92]);
+    // Hood shut lines.
+    box(body, dark, [.012, .006, 1.15], [s * .62, .809, -1.43], [-.164, 0, 0]);
   }
-  // Small Irish tricolour on the rear-left quarter; green sits at the hoist.
-  const flag=new T.Group();flag.position.set(-.94,0,1.63);body.add(flag);
-  cylinder(flag,lightSteel,.03,.03,.16,[0,.98,0],[0,0,0],6);
-  car.userData={wheels,jet,flame,body,flag,doors:doors.reverse(),dimensions:{width:2.20,height:1.56,length:4.1}};
+
+  // --- Nose: wraparound bumper, black grille band, quad rectangular headlamps.
+  const bumper = (zf, dir, top) => {
+    const prof = [[.25, .12], [.255, .015], [.33, 0], [top - .06, .005], [top, .05], [top, .16]];
+    return [-.92, -.84, .84, .92].map(x => { const recede = Math.abs(x) > .9 ? .09 : 0; return prof.map(([y, dz]) => [x, y, zf + dir * (dz + recede)]); });
+  };
+  loft(body, dark, bumper(-2.13, 1, .50));
+  loft(body, dark, bumper(2.13, -1, .555));
+  for (const s of [-1, 1]) {
+    box(body, dark, [.025, .17, .22], [s * .912, .36, -1.86]);
+    box(body, dark, [.025, .22, .26], [s * .912, .385, 1.85]);
+    box(body, amber, [.16, .05, .02], [s * .62, .40, -2.134]);
+    for (const x of [.385, .62]) box(body, white, [.20, .10, .02], [s * x, .585, -2.095]);
+  }
+  box(body, dark, [1.62, .17, .03], [0, .575, -2.075]);
+  for (const y of [.55, .585, .62]) box(body, steel, [.36, .012, .012], [0, y, -2.096]);
+
+  // --- Tail: full-width black panel, ribbed lamps, plate.
+  box(body, dark, [1.72, .40, .02], [0, .755, 2.08]);
+  for (const s of [-1, 1]) {
+    box(body, red, [.52, .22, .016], [s * .57, .765, 2.097]);
+    box(body, amber, [.14, .05, .016], [s * .76, .62, 2.097]);
+    box(body, lightSteel, [.14, .05, .016], [s * .38, .62, 2.097]);
+  }
+  for (const y of [.70, .745, .79, .835]) box(body, dark, [1.70, .012, .012], [0, y, 2.109]);
+  box(body, lightSteel, [.46, .12, .012], [0, .40, 2.136]);
+  box(body, lightSteel, [.34, .025, .006], [0, .79, 2.093]);
+
+  // --- Greenhouse: raked screen, slim pillars, central roof spine the gullwings hinge from.
+  slab(body, glass, [[-.80, .91, -.85], [.80, .91, -.85], [.62, 1.45, -.15], [-.62, 1.45, -.15]], [0, -.012, .009]);
+  for (const s of [-1, 1]) {
+    pipe(body, steel, [s * .82, .91, -.86], [s * .64, 1.435, -.17], .035);
+    box(body, dark, [.5, .012, .03], [s * .26 - .04, .955, -.78], [0, 0, s * .06]);
+  }
+  box(body, steel, [1.28, .05, .13], [0, 1.445, -.125]);
+  box(body, steel, [.38, .05, .62], [0, 1.445, .25]);
+  box(body, steel, [1.30, .05, .11], [0, 1.445, .615]);
+  // Fastback sails, the engine-cover deck and its black louvre bank.
+  const slope = z => 1.45 - .383 * (z - .66);
+  for (const s of [-1, 1]) {
+    const outer = [[.875, .955, .60], [.665, 1.45, .59], [.80, .99, 1.86], [.885, .955, 1.86]].map(([x, y, z]) => [s * x, y, z]);
+    slab(body, steel, outer, [-s * .13, 0, 0]);
+  }
+  loft(body, steel, [
+    [[-.56, .96, .64], [.56, .96, .64], [.56, 1.43, .64], [-.56, 1.43, .64]],
+    [[-.72, .96, 1.86], [.72, .96, 1.86], [.72, .975, 1.86], [-.72, .975, 1.86]],
+  ]);
+  for (let i = 0; i < 8; i++) {
+    const z = .74 + i * .145, w = 2 * (.56 + .16 * (z - .64) / 1.22);
+    box(body, dark, [w, .02, .09], [0, slope(z) + .012, z], [.62, 0, 0]);
+  }
+  // Cabin: dash, wheel, buckets and console behind the glass.
+  box(body, dark, [1.5, .09, .24], [0, .985, -.56]);
+  box(body, dark, [.16, .10, .6], [0, 1.0, -.15]);
+  const steer = mesh(new T.TorusGeometry(.11, .015, 4, 12), dark, -.36, 1.10, -.40); steer.rotation.x = -.45; body.add(steer);
+  for (const s of [-1, 1]) {
+    box(body, dark, [.40, .08, .40], [s * .36, .98, .02]);
+    box(body, dark, [.40, .42, .09], [s * .36, 1.15, .25], [.2, 0, 0]);
+  }
+
+  // --- Gullwings: hinge on the roof spine, roof half, tumblehome glass, skin, mirror, handle slot.
+  const doors = [];
+  for (const s of [1, -1]) {
+    const P = [s * .19, 1.47, 0], L = p => [p[0] - P[0], p[1] - P[1], p[2] - P[2]];
+    const door = new T.Group(); door.position.set(...P); body.add(door); doors.push(door);
+    const roof = z => [[s * .195, 1.47, z], [s * .60, 1.47, z], [s * .665, 1.425, z], [s * .195, 1.425, z]];
+    loft(door, steel, [roof(-.05), roof(.555)], P);
+    slab(door, glass, [[s * .66, 1.425, -.11], [s * .66, 1.425, .55], [s * .852, .985, .58], [s * .852, .985, -.70]], [-s * .013, -.006, 0], P);
+    box(door, steel, [.027, .59, 1.40], L([s * .9215, .68, -.06]));
+    box(door, steel, [.105, .02, 1.32], L([s * .8825, .985, -.065]));
+    box(door, dark, [.012, .065, 1.38], L([s * .941, .5325, -.06]));
+    box(door, dark, [.008, .03, .18], L([s * .938, .875, .47]));
+    box(door, dark, [.07, .025, .04], L([s * .965, 1.005, -.60]));
+    box(door, steel, [.07, .09, .17], L([s * 1.0, 1.045, -.60]), [0, s * .12, 0]);
+    box(door, glass, [.055, .07, .01], L([s * 1.0, 1.045, -.513]), [0, s * .12, 0]);
+  }
+
+  // --- Wheels: bigger rears, each touching y=0.
+  const wheels = [];
+  for (const x of [-.80, .80]) wheels.push(dmcWheel(T, k, car, x, FRONT.z, .34, .22, lightSteel, tire));
+  for (const x of [-.79, .79]) wheels.push(dmcWheel(T, k, car, x, REAR.z, .38, .27, lightSteel, tire));
+
+  // --- Turbine strapped over the louvres: fan in the intake, banded case, petal nozzle.
+  const jet = new T.Group(); jet.position.set(0, 1.68, 1.46); body.add(jet);
+  const along = [PI / 2, 0, 0];
+  const lipRing = mesh(new T.TorusGeometry(.29, .045, 6, 18), lightSteel, 0, 0, -.50); jet.add(lipRing);
+  cylinder(jet, dark, .26, .26, .01, [0, 0, -.455], along, 16);
+  cylinder(jet, lightSteel, .085, .005, .15, [0, 0, -.52], along, 10);
+  for (let i = 0; i < 12; i++) {
+    const a = i * PI * 2 / 12;
+    box(jet, lightSteel, [.07, .17, .012], [Math.cos(a) * .155, Math.sin(a) * .155, -.48], [0, .6, a - PI / 2, 'ZYX']);
+  }
+  cylinder(jet, steel, .31, .31, .32, [0, 0, -.29], along, 16);
+  cylinder(jet, dark, .32, .32, .38, [0, 0, .06], along, 16);
+  for (const z of [-.40, -.20, -.05, .10, .23]) cylinder(jet, lightSteel, .335, .335, .035, [0, 0, z], along, 16);
+  for (const z of [-.10, .38]) cylinder(jet, lightSteel, .345, .345, .05, [0, 0, z], along, 16);
+  cylinder(jet, titanium, .29, .31, .23, [0, 0, .365], along, 16);
+  cylinder(jet, titanium, .26, .29, .10, [0, 0, .53], along, 16);
+  for (let i = 0; i < 10; i++) {
+    const a = i * PI * 2 / 10, d = .15, P = (r, aa, z) => [Math.cos(aa) * r, Math.sin(aa) * r, z];
+    const petal = [P(.262, a - d, .56), P(.262, a + d, .56), P(.228, a + d * .8, .70), P(.228, a - d * .8, .70)];
+    slab(jet, titanium, petal, [Math.cos(a) * .014, Math.sin(a) * .014, 0]);
+  }
+  cylinder(jet, dark, .25, .25, .01, [0, 0, .585], along, 16);
+  cylinder(jet, cyan, .20, .20, .01, [0, 0, .60], along, 16);
+  const flame = new T.Group(); flame.position.set(0, 0, .72); jet.add(flame);
+  // Struts to the sail tops and orange fuel lines dropping into the side intakes.
+  for (const s of [-1, 1]) {
+    pipe(body, lightSteel, [s * .24, 1.43, 1.36], [s * .70, 1.19, 1.36], .03);
+    pipe(body, lightSteel, [s * .24, 1.43, 1.84], [s * .76, 1.0, 1.84], .03);
+    pipe(body, amber, [s * .30, 1.56, 1.12], [s * .50, 1.42, 1.06], .02);
+    pipe(body, amber, [s * .50, 1.42, 1.06], [s * .62, 1.30, 1.0], .02);
+  }
+  for (const z of [1.36, 1.84]) pipe(body, lightSteel, [0, 1.36, z], [0, slope(z) - .02, z], .03);
+
+  // Flag mount: a short stub only; the renderer adds the whip and cloth.
+  const flag = new T.Group(); flag.position.set(-.82, 0, 1.55); body.add(flag);
+  cylinder(flag, lightSteel, .03, .03, .18, [0, 1.07, 0], [0, 0, 0], 6);
+  box(flag, dark, [.08, .04, .08], [0, .99, 0]);
+
+  car.userData = { wheels, jet, flame, body, flag, doors, dimensions: { width: 1.86, height: 2.03, length: 4.26 } };
   return car;
 }
 

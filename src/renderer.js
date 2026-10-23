@@ -223,8 +223,8 @@ export function createRenderer(canvas) {
 
   // --- The car --------------------------------------------------------------
   const car = createCar(THREE); const D = car.userData; const body = D.body;
-  const animatedCar = [...D.wheels, ...D.doors, D.jet, D.flag];
-  batchStatic(THREE, car, animatedCar);
+  // Batch bodywork inside body so the suspension bounce moves the whole shell.
+  batchStatic(THREE, body, [...D.doors, D.jet, D.flag]);
   for (const part of [...D.wheels, ...D.doors]) batchStatic(THREE, part);
   D.flame.visible = false; batchStatic(THREE, D.jet, [D.flame]);
   scene.add(car);
