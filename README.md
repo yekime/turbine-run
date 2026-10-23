@@ -1,27 +1,30 @@
 # Turbine Run
 
-A dependency-free neon arcade drive for irishchud.com. Built with Canvas 2D, ES modules and procedural Web Audio. Chunky Irish toy geometry inspired by guinness-goblin, reimagined as a sunset back-road racer.
+A three-lane DeLorean arcade runner for **www.irishchud.com**. Real 3D toy countryside, a rear jet engine, Irish livestock and a final stop at the Turbine Arms.
 
 ## Run
 
-Serve this directory with `python3 -m http.server 8080`, then open http://localhost:8080. Any static host works; publish the repository root. No build, external fonts, image downloads or tracking.
+Serve this directory with `python3 -m http.server 8080`, then visit `http://localhost:8080`. Requires a browser with WebGL2. No build step. Three.js 0.180.0 is vendored under `vendor/` with its MIT license; no runtime CDN dependencies.
 
-## Play
+## Controls
 
-- Left/right or A/D: change lanes. Touch: swipe or use arrow buttons.
-- Space / up arrow: rear jet jump. Clears cows and sheep, not tractors.
-- Shift / lightning button: spend a collected pint on 2.4 seconds of jet boost.
-- Escape / P / pause button: pause or resume. Switching tabs automatically pauses.
-- Speed climbs from 72 to 108; obstacle rows gradually tighten and double-obstacle rows become more frequent, always leaving one clear lane.
-- Three bodywork points; temporary invulnerability after a hit. A finite 6.2 km course ends at the Turbine Arms (roughly 50–70 seconds).
-- Sound is opt-in. Reduced-motion preference disables title-screen movement and boost streaks.
+- Left/right or A/D: steer; swipe horizontally on a phone.
+- Space/up: jet jump over cows and sheep; tractors must be dodged.
+- Shift/lightning: spend a pint on 2.4 seconds of boost.
+- P/Escape/pause: pause. Switching tabs pauses automatically.
+- Sound is opt-in.
 
-Pints are fantastical fuel collectibles, not a real-world driving recommendation. No payments, personal data or external APIs.
+Speed climbs from 72 to 108, rows tighten, and double-obstacle patterns become more common. Each row retains a clear lane. Three hits end the run. The 6.2 km course ends at the pub.
 
-## Tests
+## Code
 
-`npm test` (Node 18+). Tests cover row safety, control bounds, pause, boost fuel, jump collision, hit immunity, loss and finish. Game state is isolated in `src/engine.js`.
+- `src/engine.js`: deterministic simulation, continuous collision timing, normalized jump parabola and course generation.
+- `src/renderer.js`: Three.js chase camera, scenery, instancing, lighting, shadows and animation.
+- `src/models.js`: original procedural car, livestock, tractor, pint, pub, tree and turbine geometry.
+- `src/main.js`: input, game screens, HUD and optional audio.
 
-## Personalisation
+`npm test` runs mechanics tests with Node 18+. Includes seeded-course fairness, full boosted runs, and 30/60/120 Hz timing equivalence. Browser visual verification remains outstanding because the browser permission gate rejected access; source tests are not a substitute for visual or mobile-device testing.
 
-Pub name and birthday copy are in `index.html` and `src/main.js` (`pub` and `finish`). No recipient name is assumed. Domain setup is performed at your static host; this source does not modify DNS.
+## Hosting
+
+Vercel: framework Other, no build command, output directory repository root. The `www` domain was responding successfully when checked. The bare apex domain failed TLS negotiation; attach/verify `irishchud.com` in the Vercel project's domain settings and configure its redirect to `www`.

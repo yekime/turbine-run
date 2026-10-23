@@ -1,39 +1,137 @@
-import{createGame,step,steer,jump,boost,speed,LENGTH}from'./engine.js';
-const $=id=>document.getElementById(id),canvas=$('stage'),c=canvas.getContext('2d');let landing=0,wasJumping=false;let W=innerWidth,H=innerHeight,g=createGame(),last=0,world=0,muted=true,audio,noticeTimer,previousX=0,lean=0;
-const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-function resize(){W=innerWidth;H=innerHeight;const d=Math.min(devicePixelRatio||1,2);canvas.width=W*d;canvas.height=H*d;c.setTransform(d,0,0,d,0,0)}addEventListener('resize',resize);resize();
-function polygon(points,color){c.fillStyle=color;c.beginPath();points.forEach((p,i)=>i?c.lineTo(...p):c.moveTo(...p));c.closePath();c.fill()}
-function line(x,y,x2,y2,color,width=1){c.strokeStyle=color;c.lineWidth=width;c.beginPath();c.moveTo(x,y);c.lineTo(x2,y2);c.stroke()}
-function rect(x,y,w,h,color){c.fillStyle=color;c.fillRect(x,y,w,h)}
-function ellipse(x,y,rx,ry,color){c.fillStyle=color;c.beginPath();c.ellipse(x,y,Math.max(0,rx),Math.max(0,ry),0,0,Math.PI*2);c.fill()}
-function text(t,x,y,size,color='#fff0d6'){c.font=`bold ${size}px monospace`;c.textAlign='center';c.fillStyle=color;c.fillText(t,x,y)}
-function sound(kind){if(muted)return;try{audio??=new(window.AudioContext||window.webkitAudioContext)();audio.resume();const osc=audio.createOscillator(),vol=audio.createGain();osc.connect(vol);vol.connect(audio.destination);osc.type=kind==='hit'?'sawtooth':'triangle';const f={pint:740,hit:90,jump:210,boost:110,won:520,start:330}[kind]||180;osc.frequency.setValueAtTime(f,audio.currentTime);osc.frequency.exponentialRampToValueAtTime(kind==='hit'?35:f*1.8,audio.currentTime+.22);vol.gain.setValueAtTime(.05,audio.currentTime);vol.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.32);osc.start();osc.stop(audio.currentTime+.34)}catch{}}
-function notice(t){$('notice').textContent=t;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$('notice').textContent='',1700)}
-function start(){g=createGame();g.mode='playing';$('intro').hidden=true;$('result').hidden=true;$('hud').hidden=false;$('controls').hidden=false;$('pause').hidden=false;document.body.classList.add('playing');sound('start');notice('DUNMURRY → THE TURBINE ARMS');}
-function pause(){if(g.mode==='playing'){g.mode='paused';showResult('PIT STOP','Take a breather. The back roads can wait.','RESUME THE RUN');$('result-label').textContent='ENGINE IDLING';}else if(g.mode==='paused'){g.mode='playing';$('result').hidden=true;}}
-function showResult(title,copy,button){$('result').hidden=false;$('result-title').textContent=title;$('result-copy').textContent=copy;$('again').innerHTML=button+' <span>↗</span>';$('result-stats').textContent=g.mode==='paused'?'':`${g.pints} PINTS · ${Math.round(g.time)} SECONDS · ${g.hits} SCRAPES`;}
-function finish(){if(g.mode==='won'){sound('won');$('result-label').textContent='YOU TOOK THE LONG WAY';showResult('THE PUB IS YOURS.','The jet’s cooling. The doors are up. There’s a pint waiting at the Turbine Arms. Happy birthday, legend.','TAKE ANOTHER LAP');}else{$('result-label').textContent='A MINOR SETBACK';showResult('THAT’LL BUFF OUT.','The bodywork’s had enough. Dodge tractors, jet-jump the cows, and save a little boost for the home stretch.','BACK ON THE ROAD');}$('pause').hidden=true;}
-$('start').onclick=start;$('again').onclick=()=>g.mode==='paused'?pause():start();$('pause').onclick=pause;$('sound').onclick=()=>{muted=!muted;$('sound').textContent=muted?'SOUND OFF':'SOUND ON';$('sound').setAttribute('aria-pressed',String(!muted));$('sound').setAttribute('aria-label',muted?'Enable sound':'Mute sound');sound('start')};
-function doJump(){if(jump(g))sound('jump')}function doBoost(){if(boost(g))sound('boost');else if(g.mode==='playing'&&g.fuel===0)notice('COLLECT A PINT TO FUEL THE JET')}
-$('left').onclick=()=>steer(g,-1);$('right').onclick=()=>steer(g,1);$('jump').onclick=doJump;$('jet').onclick=doBoost;
-addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp',' ','Shift','Escape','p','P','a','d','A','D'].includes(e.key)){if(e.target.tagName==='BUTTON'&&(e.key===' '||e.key==='Enter'))return;e.preventDefault();if(e.repeat)return;if(e.key==='Escape'||e.key.toLowerCase()==='p')pause();else if(e.key===' '&&['ready','lost','won'].includes(g.mode))start();else if(e.key===' '||e.key==='ArrowUp')doJump();else if(e.key==='Shift')doBoost();else if(['ArrowLeft','a','A'].includes(e.key))steer(g,-1);else if(['ArrowRight','d','D'].includes(e.key))steer(g,1);}});let touch;canvas.addEventListener('pointerdown',e=>touch={x:e.clientX,y:e.clientY});canvas.addEventListener('pointerup',e=>{if(!touch)return;let dx=e.clientX-touch.x,dy=e.clientY-touch.y;if(Math.abs(dx)>24&&Math.abs(dx)>Math.abs(dy))steer(g,Math.sign(dx));else if(dy< -24)doJump();touch=null});document.addEventListener('visibilitychange',()=>{if(document.hidden&&g.mode==='playing')pause()});
-function horizon(){return H*.43}function road(z){let p=Math.max(0,1-z/1100);p=p*p;const turn=Math.sin((world+z)*.00075)*W*.065;return{x:W*.57+turn*p,y:horizon()+p*H*.56,w:W*.53*p+W*.015,p};}
-function bg(t){const h=horizon();let grad=c.createLinearGradient(0,0,0,H);grad.addColorStop(0,'#17132f');grad.addColorStop(.3,'#58304b');grad.addColorStop(.44,'#f28b70');grad.addColorStop(.45,'#392e49');grad.addColorStop(1,'#121829');c.fillStyle=grad;c.fillRect(0,0,W,H);
-for(let i=0;i<45;i++){const x=(i*197.7)%W,y=(i*47.3)%(h*.6);rect(x,y,i%7===0?2:1,1,'#ead8e0'+(i%3===0?'aa':'55'));}
-const sx=W*.72,sy=h*.76,r=Math.min(W*.12,H*.18);c.save();c.beginPath();c.arc(sx,sy,r,0,Math.PI*2);c.clip();let sun=c.createLinearGradient(0,sy-r,0,sy+r);sun.addColorStop(0,'#ffeab5');sun.addColorStop(.6,'#ffb67d');sun.addColorStop(1,'#fb6b87');c.fillStyle=sun;c.fillRect(sx-r,sy-r,r*2,r*2);for(let k=0;k<7;k++)rect(sx-r,sy+r*.1+k*r*.14,r*2,2+k,'#8f4b65');c.restore();
-polygon([[0,h],[0,h-35],[W*.12,h-72],[W*.27,h-19],[W*.43,h-55],[W*.59,h-14],[W*.76,h-49],[W,h-20],[W,h+45]],'#4b334f');polygon([[0,h+30],[0,h-5],[W*.2,h-25],[W*.4,h+8],[W*.65,h-18],[W*.84,h+15],[W,h-8],[W,h+60]],'#332a43');
-for(let z=1100;z>0;z-=20){const a=road(z),b=road(z-20);polygon([[a.x-a.w,a.y],[a.x+a.w,a.y],[b.x+b.w,b.y],[b.x-b.w,b.y]],Math.floor((world+z)/70)%2?'#302b40':'#322d42');for(const dir of[-1,1]){polygon([[a.x+dir*a.w,a.y],[a.x+dir*a.w*1.045,a.y],[b.x+dir*b.w*1.045,b.y],[b.x+dir*b.w,b.y]],Math.floor((world+z)/65)%2?'#f0b395':'#814760');line(a.x+dir*a.w*1.18,a.y,b.x+dir*b.w*1.18,b.y,'#6b536b',1+3*b.p);}
-if(Math.floor((world+z)/48)%2===0)for(const dir of[-1,1])polygon([[a.x+dir*a.w/3-1,a.y],[a.x+dir*a.w/3+1,a.y],[b.x+dir*b.w/3+2*b.p,b.y],[b.x+dir*b.w/3-2*b.p,b.y]],'#b498a9');}
-for(let z=1060;z>20;z-=100){const zz=(z+1100-world%100)%1100,p=road(zz);for(const side of[-1,1]){const x=p.x+side*p.w*1.32;line(x,p.y,x,p.y-26*p.p,'#a99aab',2+3*p.p);}}
-const trees=[];for(let i=0;i<13;i++){let z=(i*105-world*.7)%1365;if(z<0)z+=1365;if(z>1100)continue;trees.push({z,i})}trees.sort((a,b)=>b.z-a.z).forEach(({z,i})=>{let p=road(z);turbine(p.x+(i%2?1:-1)*(p.w*1.55+30),p.y,Math.max(.08,p.p)*Math.min(W/900,1.3),t*(.35+p.p*2.5)+i);});
+import { createGame, step, steer, jump, boost, speed, LENGTH } from './engine.js';
+import { createRenderer } from './renderer.js';
+
+const $ = id => document.getElementById(id);
+const canvas = $('stage');
+let game = createGame();
+let scene;
+let muted = true;
+let audio;
+let noticeTimer;
+let last = 0;
+try { scene = createRenderer(canvas); }
+catch (error) { $('error').hidden = false; $('start').disabled = true; console.error('Unable to start renderer', error); }
+
+function sound(kind) {
+  if (muted) return;
+  try {
+    audio ??= new (window.AudioContext || window.webkitAudioContext)();
+    audio.resume();
+    const oscillator = audio.createOscillator();
+    const gain = audio.createGain();
+    oscillator.connect(gain); gain.connect(audio.destination);
+    oscillator.type = kind === 'hit' ? 'sawtooth' : 'triangle';
+    const frequency = { pint: 740, hit: 90, jump: 210, boost: 110, won: 520, start: 330 }[kind] || 180;
+    oscillator.frequency.setValueAtTime(frequency, audio.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(kind === 'hit' ? 35 : frequency * 1.8, audio.currentTime + .22);
+    gain.gain.setValueAtTime(.05, audio.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .32);
+    oscillator.start(); oscillator.stop(audio.currentTime + .34);
+  } catch { /* Sound is optional. */ }
 }
-function turbine(x,y,s,a){c.save();c.translate(x,y);c.scale(s,s);polygon([[-5,0],[5,0],[2,-172],[-2,-172]],'#bdb1c1');ellipse(0,-172,7,6,'#ffe0b8');for(let k=0;k<3;k++){c.save();c.translate(0,-172);c.rotate(a+k*Math.PI*2/3);polygon([[-3,3],[1,-89],[7,-66],[5,-5]],'#cfc5ce');c.restore()}c.restore()}
-function sprite(type,x,y,s){c.save();c.translate(x,y);c.scale(s,s);ellipse(0,0,36,9,'#0d0c24a0');if(type==='pint'){c.shadowBlur=20;c.shadowColor='#ffcc64';polygon([[-12,-46],[14,-46],[10,-5],[-8,-5]],'#e9b86e');c.shadowBlur=0;polygon([[-9,-38],[10,-38],[6,-9],[-5,-9]],'#342224');rect(-13,-47,28,10,'#fff2c2');line(15,-36,22,-36,'#f6d69c',4);line(22,-36,20,-19,'#f6d69c',4);line(20,-19,13,-19,'#f6d69c',4);}else if(type==='tractor'){rect(-35,-39,16,43,'#11121f');rect(19,-39,16,43,'#11121f');rect(-39,-32,24,21,'#292433');rect(15,-32,24,21,'#292433');rect(-24,-46,48,40,'#a94b54');rect(-20,-84,40,37,'#d67c70');rect(-15,-79,30,26,'#342d4a');rect(-25,-89,50,7,'#f0aa89');rect(-13,-29,26,18,'#542b44');for(let j=-9;j<12;j+=5)rect(j,-26,2,12,'#ba8c99');rect(-20,-41,9,7,'#ffe0a3');rect(11,-41,9,7,'#ffe0a3');rect(26,-75,5,37,'#352a42');}else{const cow=type==='cow';rect(-27,-18,8,20,'#d0b4bc');rect(17,-18,8,20,'#d0b4bc');rect(-31,-45,57,32,cow?'#e4cfcd':'#fff1da');polygon([[-31,-45],[-21,-53],[32,-53],[26,-45]],cow?'#fff1e2':'#fff9e9');rect(17,-47,23,29,'#43394a');rect(15,-24,27,9,cow?'#e6a297':'#2b293a');rect(21,-40,4,4,'#fff1cf');rect(34,-40,3,4,'#fff1cf');if(cow){rect(-20,-44,17,18,'#48394b');rect(4,-37,14,18,'#48394b');line(20,-48,14,-58,'#f1dab1',4);line(36,-48,42,-57,'#f1dab1',4);}else{for(let j=-23;j<20;j+=12)ellipse(j,-43,11,12,'#fff1da');}}
-c.restore()}
-function car(x,y,s,t){c.save();c.translate(x,y);c.scale(s,s);const j=g.jump>0?Math.sin((1.05-g.jump)/1.05*Math.PI):0;ellipse(0,12,64-j*14,15-j*5,'#05091699');c.translate(0,-j*105);c.rotate(lean*.10);c.transform(1,0,lean*.16,1,0,0);const compression=1-landing*.13;c.scale(1+landing*.045,compression);if(g.invincible>0&&Math.floor(t*12)%2)c.globalAlpha=.5;const flame=g.boost>0||g.jump>0;for(const side of[-1,1]){rect(side*48-8,-26,16,43,'#090e1b');if(flame){polygon([[side*34-9,12],[side*34+9,12],[side*34,58+Math.sin(t*80)*15]],'#6fffe4');polygon([[side*34-5,12],[side*34+5,12],[side*34,37]],'#edfaff');}}
-polygon([[-51,4],[-40,-65],[-27,-90],[28,-90],[41,-65],[52,4],[43,18],[-44,18]],'#7d859d');polygon([[-40,-65],[-27,-90],[28,-90],[41,-65]],'#c4cad6');polygon([[-34,-61],[-24,-83],[25,-83],[35,-61]],'#22283d');for(let i=0;i<5;i++)line(-31+i*1.5,-62-i*4,32-i*1.5,-62-i*4,'#6f778c',2);polygon([[-43,-42],[43,-42],[52,4],[-51,4]],'#c9c9cd');polygon([[-43,-42],[-51,4],[-43,13],[-32,-31]],'#949aa9');polygon([[43,-42],[52,4],[44,13],[32,-31]],'#e5d8d1');rect(-46,1,92,16,'#38384b');rect(-42,4,30,7,'#ff527e');rect(12,4,30,7,'#ff527e');rect(-10,7,20,7,'#f4dcb1');text('DMC',0,12,5,'#44384d');
-// Rear-mounted jet turbine, with a hot core and machined rings.
-ellipse(0,-30,23,26,'#5c6277');ellipse(0,-26,20,21,'#c8cbd4');ellipse(0,-25,16,17,'#252c43');for(let i=0;i<8;i++){const a=i*Math.PI/4+t*(flame?20:3);line(Math.cos(a)*6,-25+Math.sin(a)*6,Math.cos(a+.4)*14,-25+Math.sin(a+.4)*14,'#838da8',3)}ellipse(0,-25,6,7,flame?'#b7fff5':'#f89d6e');if(flame){polygon([[-10,-12],[10,-12],[14,36],[0,70+Math.sin(t*66)*13],[-14,36]],'#67ddff80');polygon([[-6,-12],[6,-12],[0,47]],'#d6ffff');}c.restore()}
-function pub(x,y,s){c.save();c.translate(x,y);c.scale(s,s);rect(-100,-105,200,105,'#704455');polygon([[-119,-105],[0,-168],[119,-105]],'#362b48');rect(-84,-92,168,24,'#263d3c');text('THE TURBINE ARMS',0,-76,12,'#ffe3ab');rect(-22,-58,44,58,'#231f35');rect(-15,-48,30,32,'#e8ae64');for(const side of[-1,1]){rect(side*64-19,-53,38,35,'#ffcd83');line(side*64,-53,side*64,-18,'#694353',4);line(side*64-19,-36,side*64+19,-36,'#694353',4);}rect(-110,0,220,8,'#a38a8a');c.restore()}
-function render(t,dt){world=g.mode==='ready'?(reduced?0:t*22):g.distance;bg(t);const visible=g.events.filter(e=>!e.done&&e.z-g.distance<1100&&e.z>g.distance).sort((a,b)=>b.z-a.z);if(g.mode!=='ready')for(const e of visible){let p=road(e.z-g.distance);sprite(e.type,p.x+e.lane*p.w*.64,p.y,p.p*Math.min(W/620,1.7));}if(g.distance>LENGTH-1100||g.mode==='won'){const p=road(Math.max(60,LENGTH-g.distance));pub(p.x,p.y,p.p*Math.min(W/430,2));}const p=road(110);const active=g.mode!=='ready';lean+=((g.lane-g.x)*1.8-lean)*Math.min(1,dt*11);previousX=g.x;if(wasJumping&&g.jump<=0)landing=1;wasJumping=g.jump>0;landing=Math.max(0,landing-dt*4);car(active?p.x+g.x*p.w*.64:W*.73,active?H*.88:H*.82,Math.min(W/560,1.75),t);if(g.boost>0&&!reduced){for(let i=0;i<12;i++){const a=i*1.9;const x=W/2+Math.cos(a)*W*.5,y=H*.6+Math.sin(a)*H*.5;line(x,y,x+(x-W/2)*.1,y+(y-H*.6)*.1,'#82ffe966',2)}}if(g.mode==='ready'){const shade=c.createLinearGradient(0,0,W,0);shade.addColorStop(0,'#130e2dc9');shade.addColorStop(.5,'#130e2d45');shade.addColorStop(1,'#130e2d00');c.fillStyle=shade;c.fillRect(0,0,W,H);}if(g.invincible>1.7){rect(0,0,W,H,'#ff4b6218');}}
-function frame(ms){const t=ms/1000,dt=Math.min(.05,t-last||.016);last=t;const before=g.mode;for(const event of step(g,dt)){sound(event);if(event==='hit')notice('MIND THE BODYWORK!');}if(before==='playing'&&g.mode!==before)finish();render(t,dt);$('route-fill').style.width=`${g.distance/LENGTH*100}%`;$('distance').textContent=`${((LENGTH-g.distance)/1000).toFixed(1)} KM TO GO`;$('speed').textContent=String(Math.round(speed(g)));$('hearts').textContent='◆ '.repeat(g.lives)+'◇ '.repeat(3-g.lives);$('pints').textContent=String(g.pints).padStart(2,'0');$('boost').hidden=!g.boost;$('jet').textContent=`⚡ ${g.fuel}`;$('jet').disabled=g.fuel===0;requestAnimationFrame(frame)}requestAnimationFrame(frame);
+function notice(message) {
+  $('notice').textContent = message;
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => { $('notice').textContent = ''; }, 1500);
+}
+function start() {
+  if (!scene) return;
+  game = createGame(); game.mode = 'playing';
+  $('intro').hidden = true; $('result').hidden = true;
+  $('hud').hidden = false; $('controls').hidden = false; $('pause').hidden = false;
+  $('pause').textContent = 'Ⅱ';
+  document.activeElement?.blur();
+  sound('start'); notice('NEXT STOP: THE TURBINE ARMS');
+}
+function showResult(label, title, copy, button) {
+  $('result-label').textContent = label;
+  $('result-title').textContent = title;
+  $('result-copy').textContent = copy;
+  $('again').textContent = button;
+  $('result-stats').textContent = game.mode === 'paused' ? '' : `${game.pints} PINTS · ${Math.round(game.time)} SECONDS · ${game.hits} SCRAPES`;
+  $('result').hidden = false;
+  $('controls').hidden = true;
+  $('again').focus({ preventScroll: true });
+}
+function pause() {
+  if (game.mode === 'playing') {
+    game.mode = 'paused';
+    showResult('PIT STOP', 'BACK IN A SEC.', 'Your jet can wait.', 'KEEP GOING ➜');
+    $('pause').textContent = '▶';
+  } else if (game.mode === 'paused') {
+    game.mode = 'playing'; $('result').hidden = true; $('controls').hidden = false;
+    $('pause').textContent = 'Ⅱ'; document.activeElement?.blur();
+  }
+}
+function finish() {
+  $('pause').hidden = true;
+  if (game.mode === 'won') {
+    showResult('LAST ORDERS', 'MADE IT.', 'Park the DeLorean. The next pint’s yours.', 'ONE MORE RUN ➜');
+  } else {
+    showResult('MIND THE BODYWORK', 'THAT’LL BUFF OUT.', 'Jump the livestock. Dodge the tractors.', 'TRY AGAIN ➜');
+  }
+}
+function doJump() { if (jump(game)) sound('jump'); }
+function doBoost() {
+  if (boost(game)) sound('boost');
+  else if (game.mode === 'playing' && game.fuel === 0) notice('PINTS FUEL THE JET');
+}
+$('start').onclick = start;
+$('again').onclick = () => game.mode === 'paused' ? pause() : start();
+$('pause').onclick = pause;
+$('sound').onclick = () => {
+  muted = !muted; $('sound').textContent = muted ? '♪' : '♫';
+  $('sound').setAttribute('aria-pressed', String(!muted));
+  $('sound').setAttribute('aria-label', muted ? 'Enable sound' : 'Mute sound');
+  sound('start');
+};
+$('left').onclick = () => steer(game, -1);
+$('right').onclick = () => steer(game, 1);
+$('jump').onclick = doJump;
+$('jet').onclick = doBoost;
+
+addEventListener('keydown', event => {
+  const key = event.key.toLowerCase();
+  if (!['arrowleft', 'arrowright', 'arrowup', ' ', 'shift', 'escape', 'p', 'a', 'd'].includes(key)) return;
+  if (event.target instanceof HTMLButtonElement && key === ' ') return;
+  event.preventDefault();
+  if (event.repeat) return;
+  if (key === 'escape' || key === 'p') pause();
+  else if (key === ' ' && ['ready', 'lost', 'won'].includes(game.mode)) start();
+  else if (key === ' ' || key === 'arrowup') doJump();
+  else if (key === 'shift') doBoost();
+  else if (key === 'arrowleft' || key === 'a') steer(game, -1);
+  else if (key === 'arrowright' || key === 'd') steer(game, 1);
+});
+let pointer = null;
+canvas.addEventListener('pointerdown', event => { pointer = { x: event.clientX, y: event.clientY }; canvas.setPointerCapture(event.pointerId); });
+canvas.addEventListener('pointerup', event => {
+  if (!pointer) return;
+  const dx = event.clientX - pointer.x, dy = event.clientY - pointer.y;
+  if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) steer(game, Math.sign(dx));
+  else if (dy < -24) doJump();
+  pointer = null;
+});
+canvas.addEventListener('pointercancel', () => { pointer = null; });
+document.addEventListener('visibilitychange', () => { if (document.hidden && game.mode === 'playing') pause(); });
+addEventListener('resize', () => scene?.resize());
+
+function frame(milliseconds) {
+  const dt = last ? Math.min(.05, (milliseconds - last) / 1000) : 1 / 60;
+  last = milliseconds;
+  const before = game.mode;
+  for (const event of step(game, dt)) { sound(event); if (event === 'hit') notice('MIND THE BODYWORK!'); }
+  if (before === 'playing' && game.mode !== before) finish();
+  scene?.render(game, dt);
+  $('route-fill').style.width = `${game.distance / LENGTH * 100}%`;
+  $('distance').textContent = `${((LENGTH - game.distance) / 1000).toFixed(1)} KM`;
+  $('speed').textContent = Math.round(speed(game));
+  $('hearts').textContent = '♥ '.repeat(game.lives) + '♡ '.repeat(3 - game.lives);
+  $('hearts').setAttribute('aria-label', `${game.lives} bodywork points`);
+  $('pints').textContent = game.pints;
+  $('fuel').textContent = game.fuel;
+  $('jet').disabled = game.fuel === 0 || game.boost > 0;
+  $('boost').hidden = game.boost <= 0;
+  requestAnimationFrame(frame);
+}
+if (scene) requestAnimationFrame(frame);
