@@ -1,7 +1,6 @@
 import { createGame, step, steer, jump, slam, boost, LENGTH, FUEL_PER_BOOST } from './engine.js';
 import { createRenderer } from './renderer.js';
 import { createAudio } from './audio.js';
-import { LAST_CALL_SVG } from './lastcall.svg.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('stage');
@@ -9,7 +8,7 @@ let game = createGame();
 let scene, noticeTimer, last = 0, soundWanted = true, seed = 1981;
 const audio = createAudio();
 try { scene = createRenderer(canvas); }
-catch (error) { $('error').hidden = false; $('start').disabled = true; console.error('Unable to start renderer', error); }
+catch (error) { $('error').hidden = false; $('start').disabled = true; $('lc-load').hidden = true; console.error('Unable to start renderer', error); }
 
 function setSound(on, quiet = false) {
   soundWanted = on;
@@ -52,11 +51,17 @@ function finish() {
 const act = {
   left: () => steer(game, -1), right: () => steer(game, 1),
   up: () => { if (jump(game)) sfx('jump'); },
-  down: () => { if (slam(game)) sfx('jump'); },
+  down: () => { if (slam(game)) sfx('dive'); },
   boost: () => { if (boost(game)) { sfx('boost'); flash('boost'); } else if (game.mode === 'playing' && game.boost <= 0) { notice(`${FUEL_PER_BOOST - game.fuel} MORE PINTS`); $('jet').classList.remove('empty'); void $('jet').offsetWidth; $('jet').classList.add('empty'); } }
 };
 $('start').onclick = start;
-$('lc-art').innerHTML = LAST_CALL_SVG;
+// The button waits behind the loading bar until the first frame has drawn (shaders compiled).
+let loaded = false;
+function ready() {
+  if (loaded) return; loaded = true;
+  $('lc-load').classList.add('done');
+  setTimeout(() => { $('lc-load').hidden = true; $('lc-go').hidden = false; }, 260);
+}
 $('lc-go').onclick = () => { $('lastcall').hidden = true; sfx('slamdoor'); start(); };
 $('again').onclick = () => game.mode === 'paused' ? pause() : start();
 $('pause').onclick = pause;
@@ -71,7 +76,7 @@ addEventListener('keydown', event => {
   if (key === 'escape' || key === 'p') { event.preventDefault(); pause(); return; }
   if (!(key in KEYS)) return;
   event.preventDefault(); if (event.repeat) return;
-  if (key === ' ' && ['ready', 'lost', 'won'].includes(game.mode)) { if (!$('lastcall').hidden) $('lc-go').click(); else start(); return; }
+  if (key === ' ' && ['ready', 'lost', 'won'].includes(game.mode)) { if (!$('lastcall').hidden) { if (loaded) $('lc-go').click(); } else start(); return; }
   act[KEYS[key]]();
 });
 
@@ -118,6 +123,7 @@ function frame(milliseconds) {
   if (before === 'playing' && game.mode !== before) finish();
   const out = scene?.render(game, dt);
   if (out) {
+    ready();
     for (const cue of out.cues) { sfx(cue); if (cue === 'gate') { const sp = $('speedo'); sp.classList.remove('gate'); void sp.offsetWidth; sp.classList.add('gate'); } if (cue === 'eighty') { notice('88 MPH', 'eighty'); flash('eighty'); } }
     audio.engine(game.mode === 'playing' ? out.mph : 0, out.thrust, out.boosting);
   }

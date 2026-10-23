@@ -46,7 +46,7 @@ function build() {
 const SONG = build();
 
 export function createAudio() {
-  let ctx = null, master, musicBus, sfxBus, echo, noise, engine, timer = null, start = 0, idx = 0, loops = 0;
+  let ctx = null, master, musicBus, sfxBus, hitBus, drive, echo, noise, engine, timer = null, start = 0, idx = 0, loops = 0;
   function init() {
     if (ctx) return ctx;
     const A = globalThis.AudioContext || globalThis.webkitAudioContext; if (!A) return null;
@@ -54,6 +54,10 @@ export function createAudio() {
     master = ctx.createDynamicsCompressor(); master.threshold.value = -14; master.ratio.value = 4; master.connect(ctx.destination);
     musicBus = ctx.createGain(); musicBus.gain.value = .32; musicBus.connect(master);
     sfxBus = ctx.createGain(); sfxBus.gain.value = .7; sfxBus.connect(master);
+    // Big impacts skip the master compressor, which flattens them, and go through a fast limiter of their own.
+    const limit = ctx.createDynamicsCompressor(); limit.threshold.value = -3; limit.knee.value = 0; limit.ratio.value = 20; limit.attack.value = .001; limit.release.value = .12; limit.connect(ctx.destination);
+    hitBus = ctx.createGain(); hitBus.gain.value = .9; hitBus.connect(limit);
+    drive = new Float32Array(1024); for (let i = 0; i < drive.length; i++) { const x = i / 511.5 - 1; drive[i] = Math.tanh(x * 6); }
     // Dotted-eighth echo on the lead.
     echo = ctx.createDelay(1); echo.delayTime.value = EIGHTH * 3; const fb = ctx.createGain(); fb.gain.value = .32; const wet = ctx.createGain(); wet.gain.value = .3;
     echo.connect(fb).connect(echo); echo.connect(wet).connect(musicBus);
@@ -81,6 +85,19 @@ export function createAudio() {
   function hiss(dur, peak, f0, f1, type = 'bandpass', at = ctx.currentTime, dest = sfxBus) {
     const s = ctx.createBufferSource(); s.buffer = noise; const f = ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(f0, at); if (f1) f.frequency.exponentialRampToValueAtTime(f1, at + dur); f.Q.value = 1.2;
     const g = ctx.createGain(); env(g, at, peak, .004, dur); s.connect(f).connect(g).connect(dest); s.start(at, Math.random()); s.stop(at + dur + .05);
+  }
+  // A clipped square through a lowpass: the body of a heavy thud.
+  function crunch(f0, f1, dur, peak, at, dest) {
+    const o = ctx.createOscillator(), shaper = ctx.createWaveShaper(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'square'; o.frequency.setValueAtTime(f0, at); o.frequency.exponentialRampToValueAtTime(f1, at + dur);
+    shaper.curve = drive; lp.type = 'lowpass'; lp.frequency.setValueAtTime(2400, at); lp.frequency.exponentialRampToValueAtTime(200, at + dur);
+    env(g, at, peak, .002, dur); o.connect(shaper).connect(lp).connect(g).connect(dest); o.start(at); o.stop(at + dur + .05);
+  }
+  // Pull the music down under an impact and let it swell back.
+  function duck(at, depth, hold) {
+    const v = musicBus.gain.value; musicBus.gain.cancelScheduledValues(at);
+    musicBus.gain.setValueAtTime(v, at); musicBus.gain.linearRampToValueAtTime(v * depth, at + .01);
+    musicBus.gain.setValueAtTime(v * depth, at + hold); musicBus.gain.linearRampToValueAtTime(.32, at + hold + .6);
   }
   function lead(at, midi, dur) {
     const f = NOTE(midi + 12);
@@ -134,7 +151,16 @@ export function createAudio() {
       else if (kind === 'hit') { tone('sawtooth', 120, 30, .45, .5, t); hiss(.4, .4, 800, 120, 'lowpass', t); }
       else if (kind === 'jump') hiss(.25, .18, 400, 2600, 'bandpass', t);
       else if (kind === 'land') tone('sine', 90, 40, .18, .35, t);
-      else if (kind === 'slam') { tone('sine', 110, 28, .5, .7, t); hiss(.5, .5, 1200, 90, 'lowpass', t); }
+      else if (kind === 'dive') { hiss(.22, .3, 3200, 260, 'bandpass', t); tone('sawtooth', 420, 90, .2, .12, t); }
+      else if (kind === 'slam') {
+        duck(t, .12, .18);
+        tone('sine', 190, 30, .9, 1, t, hitBus);                    // sub boom
+        crunch(150, 38, .4, .55, t, hitBus);                         // body thud
+        hiss(.035, .9, 6000, 2500, 'bandpass', t, hitBus);           // crack on contact
+        [410, 587, 833].forEach((f, i) => tone('square', f, f * .7, .16 + i * .05, .07, t + .006, hitBus)); // chassis clank
+        hiss(1.1, .55, 1800, 50, 'lowpass', t + .02, hitBus);       // rumble and debris
+        hiss(.5, .14, 4000, 900, 'bandpass', t + .09, hitBus);       // gravel patter
+      }
       else if (kind === 'smash') { tone('square', 300, 60, .25, .25, t); hiss(.3, .35, 3000, 400, 'bandpass', t); tone('sine', NOTE(79), NOTE(91), .15, .08, t + .05); }
       else if (kind === 'boost') { hiss(1.2, .6, 200, 4000, 'bandpass', t); tone('sawtooth', 60, 220, 1, .3, t); }
       else if (kind === 'gate') { hiss(.5, .35, 500, 5000, 'bandpass', t); [76, 83, 88].forEach((m, i) => tone('square', NOTE(m), 0, .12, .08, t + i * .05)); }

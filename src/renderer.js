@@ -478,7 +478,7 @@ export function createRenderer(canvas) {
       landing = Math.min(1.4, impact); kick(-3.4 * impact, 1.8 * impact, (Math.random() - .5) * 6 * impact); shake(.25 + impact * .35);
       const n = slammed ? 46 : 18;
       for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = (slammed ? 9 : 4) * (.4 + Math.random()); smoke.emit(car.position.x + Math.cos(a) * 1.2, jumpHeight + .15, car.position.z + Math.sin(a) * 2, Math.cos(a) * v, Math.random() * (slammed ? 3 : 1.4), Math.sin(a) * v, .8, .5, slammed ? 2.4 : 1.6, '#f2e9ff', '#9f8ccc', 2.5, .4, true); }
-      if (slammed) { shockAge = .12; for (let i = 0; i < 30; i++) fx.emit(car.position.x, jumpHeight + .2, car.position.z, (Math.random() - .5) * 16, Math.random() * 5, (Math.random() - .5) * 16, .4, .35, .05, '#c9fff0', '#19ff8c', 2.5); }
+      if (slammed) { shockAge = .12; shake(.45); kick(-3, 1.2); for (let i = 0; i < 30; i++) fx.emit(car.position.x, jumpHeight + .2, car.position.z, (Math.random() - .5) * 16, Math.random() * 5, (Math.random() - .5) * 16, .4, .35, .05, '#c9fff0', '#19ff8c', 2.5); }
     }
     previousLandings = g.landings;
     if (g.flips > previousFlips) { cues.push('flip'); flipAge = 0; flipDir = g.flipDir || 1; shake(.15); }
