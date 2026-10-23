@@ -6,6 +6,8 @@ A three-lane jet DeLorean runner for **www.irishchud.com**. Neon Irish dusk, a c
 
 Serve this directory with `python3 -m http.server 8080`, then visit `http://localhost:8080`. Needs WebGL2. No build step. Three.js 0.180.0 and its bloom post-processing passes are vendored under `vendor/` with the MIT license; there are no runtime CDN requests.
 
+First load opens on the barman ringing LAST CALL; the button goes straight into the run. Finishing shows the leprechaun outside the Turbine Arms chugging pint after pint.
+
 ## Controls
 
 | Action | Phone | Keyboard |
@@ -18,13 +20,13 @@ Serve this directory with `python3 -m http.server 8080`, then visit `http://loca
 | Sound | speaker icon | M |
 
 - Switching lanes in the air does a barrel roll.
-- Pints fill the jet gauge, five at most. A boost lasts 2.4 s, adds 40 mph and rams livestock and tractors out of the way.
+- Pints fill the jet gauge; bonus pints on truck decks count double. The jet only fires on a full gauge of 8 and empties it: 3 s, plus 40 mph, ramming everything out of the way. Pints grabbed mid-boost do not count.
 - Jump cows, sheep, goats, hay bales and keg stacks. Tractors and caravans are too tall: dodge them or boost through.
 - Crash into livestock and it topples over; boost into it and it flies.
 - Blade transporters have a ramp at the back: drive straight up and ride the blade. Bonus pints run along the top.
 - Tankers have no ramp. Driving into the back costs bodywork. Jump onto them instead.
 - You can't steer into the side of a truck; the car bumps off it.
-- Every neon gate you drive through adds 3.2 mph for the rest of the run, 19 gates in all; they heat from green to cyan, orange and pink as you speed up.
+- The run is about 2.5 minutes. Every neon gate you drive through adds 2.2 mph for the rest of the run, 41 gates in all, from 72 to about 162 mph; they heat from green to cyan, orange and pink as you speed up.
 - Three hits end the run.
 
 Sound starts at the first tap or key press. The music is "The Irish Washerwoman", a traditional jig, synthesised live as a synthwave jig; the transcription is the [thesession.org setting by Aaron Bergen](https://thesession.org/tunes/92#setting47183).

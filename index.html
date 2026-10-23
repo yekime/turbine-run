@@ -3,14 +3,15 @@
 <body><canvas id="stage" aria-label="3D Irish countryside driving game"></canvas>
 <div id="fx" aria-hidden="true"></div>
 <header><span class="arcade-mark">IRISHCHUD<span>ARCADE</span></span><nav><button id="sound" aria-label="Mute sound" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg></button><button id="pause" aria-label="Pause" hidden><svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg></button></nav></header>
-<section id="intro"><div class="title"><span class="badge">DUNMURRY · 1981</span><h1>TURBINE<span>RUN</span></h1></div><div class="launch"><button class="primary" id="start">GO</button><div class="keys" aria-hidden="true"><span>← →</span><span>↑</span><span>↓</span><span>⇧</span></div></div></section>
+<section id="lastcall" aria-labelledby="lc-shout"><div class="lc-card"><div class="lc-logo">TURBINE<span>RUN</span></div><div class="lc-scene"><div id="lc-art"></div><div class="lc-shout" id="lc-shout">LAST CALL!!!</div></div><button class="primary" id="lc-go">GET TO THE PUB</button></div></section>
+<section id="intro" hidden><div class="title"><span class="badge">DUNMURRY · 1981</span><h1>TURBINE<span>RUN</span></h1></div><div class="launch"><button class="primary" id="start">GO</button><div class="keys" aria-hidden="true"><span>← →</span><span>↑</span><span>↓</span><span>⇧</span></div></div></section>
 <section id="hud" aria-label="Game status" hidden>
   <div class="hud-top"><div class="pill" id="pint-pill"><i class="pint-icon"></i><b id="pints">0</b></div><div class="route"><div id="route-fill"></div><i class="pub-icon"></i></div><div class="lives" id="hearts" aria-label="Three bodywork points"><i></i><i></i><i></i></div></div>
   <div class="speed" id="speedo"><b id="speed">72</b><small>MPH</small></div>
-  <button id="jet" class="jet" aria-label="Jet boost"><span class="cells"><i></i><i></i><i></i><i></i><i></i></span><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></button>
+  <button id="jet" class="jet" aria-label="Jet boost"><span class="cells"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></button>
 </section>
 <div id="gesture" aria-hidden="true" hidden><i class="g-left"></i><i class="g-up"></i><i class="g-right"></i><i class="g-down"></i></div>
 <div id="notice" role="status" aria-live="polite"></div>
-<section id="result" hidden role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="result-card"><span class="badge" id="result-label">PIT STOP</span><h2 id="result-title"></h2><p id="result-copy"></p><div id="result-stats"></div><button id="again" class="primary">GO AGAIN</button></div></section>
+<section id="result" hidden role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="result-card"><h2 id="result-title"></h2><div id="result-stats"></div><button id="again" class="primary">AGAIN</button></div></section>
 <div id="error" hidden role="alert"><h2>Engine trouble.</h2><p>This game needs WebGL. Try a browser with hardware acceleration enabled.</p></div><noscript>This game needs JavaScript.</noscript>
 <script type="module" src="src/main.js"></script></body></html>

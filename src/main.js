@@ -1,6 +1,7 @@
-import { createGame, step, steer, jump, slam, boost, LENGTH } from './engine.js';
+import { createGame, step, steer, jump, slam, boost, LENGTH, FUEL_PER_BOOST } from './engine.js';
 import { createRenderer } from './renderer.js';
 import { createAudio } from './audio.js';
+import { LAST_CALL_SVG } from './lastcall.svg.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('stage');
@@ -34,27 +35,29 @@ function start() {
   $('intro').hidden = true; $('result').hidden = true; $('hud').hidden = true; $('pause').hidden = true;
   document.activeElement?.blur(); clearTimeout(noticeTimer); $('notice').textContent = '';
 }
-function showResult(label, title, copy, button) {
-  $('result-label').textContent = label; $('result-title').textContent = title; $('result-copy').textContent = copy; $('again').textContent = button;
+function showResult(title, button, kind = '') {
+  $('result-title').textContent = title; $('again').textContent = button; $('result').className = kind;
   $('result-stats').innerHTML = game.mode === 'paused' ? '' : `<span><b>${game.pints}</b>PINTS</span><span><b>${game.smashed}</b>SMASHED</span><span><b>${Math.round(game.time)}</b>SECONDS</span>`;
   $('result').hidden = false; $('again').focus({ preventScroll: true });
 }
 function pause() {
-  if (game.mode === 'playing') { game.mode = 'paused'; showResult('PIT STOP', 'PAUSED', '', 'KEEP GOING'); }
+  if (game.mode === 'playing') { game.mode = 'paused'; showResult('PAUSED', 'GO'); }
   else if (game.mode === 'paused') { game.mode = 'playing'; $('result').hidden = true; document.activeElement?.blur(); }
 }
 function finish() {
   $('pause').hidden = true; $('hud').hidden = true;
-  if (game.mode === 'won') showResult('LAST ORDERS', 'MADE IT.', 'The Turbine Arms. Next pint is yours.', 'ONE MORE RUN');
-  else showResult('MIND THE BODYWORK', 'THAT’LL BUFF OUT.', '', 'TRY AGAIN');
+  if (game.mode === 'won') setTimeout(() => showResult('SLÁINTE!', 'AGAIN', 'won'), 1600);
+  else showResult('BANJAXED.', 'AGAIN', 'lost');
 }
 const act = {
   left: () => steer(game, -1), right: () => steer(game, 1),
   up: () => { if (jump(game)) sfx('jump'); },
   down: () => { if (slam(game)) sfx('jump'); },
-  boost: () => { if (boost(game)) { sfx('boost'); flash('boost'); } else if (game.mode === 'playing' && game.fuel === 0) { notice('PINTS FUEL THE JET'); $('jet').classList.remove('empty'); void $('jet').offsetWidth; $('jet').classList.add('empty'); } }
+  boost: () => { if (boost(game)) { sfx('boost'); flash('boost'); } else if (game.mode === 'playing' && game.boost <= 0) { notice(`${FUEL_PER_BOOST - game.fuel} MORE PINTS`); $('jet').classList.remove('empty'); void $('jet').offsetWidth; $('jet').classList.add('empty'); } }
 };
 $('start').onclick = start;
+$('lc-art').innerHTML = LAST_CALL_SVG;
+$('lc-go').onclick = () => { $('lastcall').hidden = true; sfx('slamdoor'); start(); };
 $('again').onclick = () => game.mode === 'paused' ? pause() : start();
 $('pause').onclick = pause;
 $('sound').onclick = () => setSound(!soundWanted);
@@ -68,7 +71,7 @@ addEventListener('keydown', event => {
   if (key === 'escape' || key === 'p') { event.preventDefault(); pause(); return; }
   if (!(key in KEYS)) return;
   event.preventDefault(); if (event.repeat) return;
-  if (key === ' ' && ['ready', 'lost', 'won'].includes(game.mode)) { start(); return; }
+  if (key === ' ' && ['ready', 'lost', 'won'].includes(game.mode)) { if (!$('lastcall').hidden) $('lc-go').click(); else start(); return; }
   act[KEYS[key]]();
 });
 
@@ -125,8 +128,8 @@ function frame(milliseconds) {
     hearts.forEach((h, i) => h.classList.toggle('lost', i >= game.lives));
     $('hearts').setAttribute('aria-label', `${game.lives} bodywork points`);
     $('pints').textContent = game.pints;
-    cells.forEach((c, i) => c.classList.toggle('full', i < game.fuel));
-    $('jet').classList.toggle('ready', game.fuel > 0 && game.boost <= 0);
+    cells.forEach((c, i) => c.classList.toggle('full', game.boost > 0 ? i < Math.ceil(game.boost / 3 * cells.length) : i < game.fuel));
+    $('jet').classList.toggle('ready', game.fuel >= FUEL_PER_BOOST && game.boost <= 0);
     $('jet').classList.toggle('firing', game.boost > 0);
     document.body.classList.toggle('boosting', game.boost > 0);
   } else document.body.classList.remove('boosting');

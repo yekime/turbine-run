@@ -1,6 +1,6 @@
 // Deterministic run simulation. Distance is in course units (0.3 m each in the renderer);
 // height (y) is in metres. Fixed 240 Hz substeps make every frame rate play identically.
-export const LENGTH = 6200;
+export const LENGTH = 18000;
 export const COLLISION_OFFSET = 110;
 export const GRAVITY = 34;
 export const JUMP_VELOCITY = 13.2;
@@ -12,9 +12,11 @@ export const DECK = { blade: 2.6, tanker: 1.85 };
 export const CLEARANCE = { cow: 1.7, sheep: .95, goat: 1.0, bale: 1.6, kegs: 1.45, tractor: 2.7, caravan: 3.2 };
 // Low obstacles you can jump; tall ones you must dodge or ram with boost.
 const LOW = ['cow', 'cow', 'sheep', 'goat', 'bale', 'kegs'], TALL = ['tractor', 'caravan'];
-export const BOOST_TIME = 2.4;
+export const BOOST_TIME = 3;
+// The jet only fires on a full gauge, and firing empties it.
+export const FUEL_PER_BOOST = 8;
 // Neon gates: every one you drive through adds speed for the rest of the run.
-export const GATE_SPACING = 300, GATE_BOOST = 3.2, FIRST_GATE = 420;
+export const GATE_SPACING = 430, GATE_BOOST = 2.2, FIRST_GATE = 420;
 const LANE_RESPONSE = 14;
 const ACCELERATION = 36 / LENGTH;
 const H = 1 / 240;
@@ -23,19 +25,20 @@ export function course(seed = 1981) {
   let s = seed >>> 0;
   const random = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
   const rows = [];
-  for (let z = 370; z < LENGTH - 350; z += 195 - 75 * (z / LENGTH)) {
+  for (let z = 370; z < LENGTH - 350; z += 180 - 72 * (z / LENGTH)) {
     const safe = Math.floor(random() * 3) - 1;
     const others = [-1, 0, 1].filter(x => x !== safe);
     const row = { z, safe, items: [{ z, lane: safe, type: 'pint' }] };
-    const pick = () => random() > .4 ? LOW[Math.floor(random() * LOW.length)] : TALL[Math.floor(random() * TALL.length)];
+    const tallShare = .32 + .2 * (z / LENGTH);
+    const pick = () => random() > tallShare ? LOW[Math.floor(random() * LOW.length)] : TALL[Math.floor(random() * TALL.length)];
     row.items.push({ z, lane: others[0], type: pick() });
-    if (random() > (.65 - .48 * (z / LENGTH))) row.items.push({ z, lane: others[1], type: pick() });
+    if (random() > (.5 - .42 * (z / LENGTH))) row.items.push({ z, lane: others[1], type: pick() });
     rows.push(row);
   }
   // Trucks: a blade transporter with a ramp you can drive up, or a tanker you must jump onto.
   const platforms = [];
   for (let i = 2; i < rows.length - 4; i++) {
-    if (rows[i].z < 650 || rows[i].z > LENGTH - 700 || random() > .34) continue;
+    if (rows[i].z < 650 || rows[i].z > LENGTH - 700 || random() > .4) continue;
     const span = 1 + Math.floor(random() * 2);
     const tanker = random() < .35;
     const type = tanker ? 'tanker' : 'blade';
@@ -98,7 +101,7 @@ export function slam(g) {
 /** Kept for the renderer and tests: current height in metres. */
 export function jumpHeight(g) { return g.y; }
 export function boost(g) {
-  if (g.mode === 'playing' && g.fuel > 0 && g.boost <= 0) { g.fuel--; g.boost = BOOST_TIME; return true; }
+  if (g.mode === 'playing' && g.fuel >= FUEL_PER_BOOST && g.boost <= 0) { g.fuel = 0; g.boost = BOOST_TIME; return true; }
   return false;
 }
 
@@ -143,7 +146,7 @@ function substep(g, sounds) {
     if (Math.abs(e.lane - g.x) >= .57) continue;
     if (e.type === 'pint') {
       if (Math.abs(g.y - (e.y || 0)) > 1.7) continue;
-      e.collected = true; g.pints++; g.fuel = Math.min(5, g.fuel + 1); sounds.push('pint'); continue;
+      e.collected = true; g.pints++; if (g.boost <= 0) g.fuel = Math.min(FUEL_PER_BOOST, g.fuel + (e.bonus ? 2 : 1)); sounds.push('pint'); continue;
     }
     if (g.y >= CLEARANCE[e.type]) continue;
     if (g.boost > 0) { e.smashed = true; g.smashed++; sounds.push('smash'); continue; }

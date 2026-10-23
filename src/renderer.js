@@ -271,6 +271,8 @@ export function createRenderer(canvas) {
   batchStatic(THREE, driver, [...driver.userData.legs, ...driver.userData.arms]);
   for (const limb of [...driver.userData.legs, ...driver.userData.arms]) batchStatic(THREE, limb);
   const runner = new THREE.Group(); runner.add(driver); scene.add(runner);
+  const handPint = batchStatic(THREE, createPint(THREE)); handPint.scale.setScalar(.42); handPint.position.set(.04, -.5, -.1); handPint.visible = false; driver.userData.arms[1].add(handPint);
+  let winTime = 0, chugs = 0, lastChug = -1;
 
   const pub = batchStatic(THREE, createPub(THREE)); pub.rotation.y = Math.PI; pub.scale.setScalar(1.6); scene.add(pub); pub.visible = false;
 
@@ -494,8 +496,26 @@ export function createRenderer(canvas) {
     } else for (let i = 0; i < D.doors.length; i++) D.doors[i].rotation.z = damp(D.doors[i].rotation.z, won ? (i === 0 ? 1 : -1) * 1.22 : 0, 7, dt);
 
     // Intro choreography: sprint, dive, slam, spool, launch.
-    runner.visible = ready || (intro && t < 1.2);
-    seated.visible = !ready && !(intro && t < 1.15);
+    runner.visible = ready || (intro && t < 1.2) || won;
+    seated.visible = !ready && !won && !(intro && t < 1.15);
+    handPint.visible = won;
+    winTime = won ? winTime + dt : 0;
+    if (won) {
+      // Out of the car and chugging pint after pint outside the Turbine Arms.
+      const cyc = 1.7, ph = (winTime % cyc) / cyc, n = Math.floor(winTime / cyc);
+      const raise = smooth(ph, .05, .28) * (1 - smooth(ph, .78, .95));
+      runner.position.set(-2.6, Math.abs(Math.sin(winTime * 9)) * .04 * (1 - raise), -9.5);
+      runner.rotation.set(0, Math.PI - .95 + Math.sin(winTime * .8) * .1, 0);
+      driver.scale.setScalar(1); driver.position.y = 0;
+      driver.rotation.set(raise * .32, 0, Math.sin(winTime * 5) * .04 * raise);
+      driver.userData.arms[1].rotation.x = 2.45 * raise; driver.userData.arms[1].rotation.z = -.35 * raise;
+      driver.userData.arms[0].rotation.x = Math.sin(winTime * 3) * .25 - raise * .4;
+      driver.userData.arms[0].rotation.z = raise * .5;
+      driver.userData.legs.forEach((l, i) => l.rotation.x = i ? Math.max(0, Math.sin(winTime * 9)) * .3 * (1 - raise) : 0);
+      handPint.rotation.x = -raise * .35;
+      if (n !== lastChug && winTime > .4) { lastChug = n; chugs++; const hp = new THREE.Vector3(); handPint.getWorldPosition(hp); for (let i = 0; i < 18; i++) fx.emit(hp.x, hp.y + .3, hp.z, (Math.random() - .5) * 3, 2 + Math.random() * 3, (Math.random() - .5) * 3, .6, .35, .05, '#fff6dc', '#ffcc4a', 2); }
+      if (Math.random() < dt * 14) { const c = ['#19ff8c', '#ffffff', '#ff8a1f'][Math.floor(Math.random() * 3)]; fx.emit(-4 + Math.random() * 8, 6 + Math.random() * 2, -14 + Math.random() * 6, (Math.random() - .5) * 2, -1.5, 0, 2.4, .35, .25, c, c, .3, -.6); }
+    } else { lastChug = -1; chugs = 0; }
     if (ready) {
       runner.position.set(-4.2, 0, 1.6); runner.rotation.set(0, -Math.PI / 2 + Math.sin(elapsed * .8) * .3, 0);
       driver.rotation.set(0, 0, Math.sin(elapsed * 2.2) * .06); driver.position.y = Math.abs(Math.sin(elapsed * 4.4)) * .05;
@@ -581,7 +601,11 @@ export function createRenderer(canvas) {
     const sh = reducedMotion ? 0 : trauma * trauma;
     const n1 = wave(elapsed * 23, 1), n2 = wave(elapsed * 19, 2), n3 = wave(elapsed * 17, 3);
     let pos, look, fov, roll;
-    if (ready) {
+    if (won) {
+      const a = .15 + Math.sin(winTime * .25) * .45;
+      pos = tmpV.set(-2.6 + Math.sin(a) * 4.6, 1.6, -9.5 + Math.cos(a) * 4.6);
+      look = [-2.6, portrait ? .15 : .8, -9.5]; fov = portrait ? 58 : 44; roll = 0;
+    } else if (ready) {
       const a = elapsed * .22;
       pos = tmpV.set(Math.sin(a) * 7.5 - 1.5, 2.1 + Math.sin(elapsed * .4) * .3, Math.cos(a) * 7.5 + 1);
       look = [ -1, 1, 0 ]; fov = portrait ? 66 : 50; roll = 0;

@@ -1,15 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, course, step, steer, jump, slam, boost, speed, surface, carZ, LENGTH, GATE_BOOST, JUMP_APEX, CLEARANCE, DECK, RAMP } from '../src/engine.js';
+import { createGame, course, step, steer, jump, slam, boost, speed, surface, carZ, LENGTH, GATE_BOOST, FUEL_PER_BOOST, JUMP_APEX, CLEARANCE, DECK, RAMP } from '../src/engine.js';
 
 const playing = seed => { const g = createGame(seed); g.mode = 'playing'; return g; };
 const clear = g => { g.events = []; g.platforms = []; g.gates = []; return g; };
 function runFor(g, seconds, hz) { const n = Math.round(seconds * hz); for (let i = 0; i < n; i++) step(g, 1 / hz); }
 
-test('pint fuels a manually activated boost', () => {
+test('the jet only fires on a full gauge of pints, and firing empties it', () => {
   const g = clear(playing()); g.events = [{ z: carZ(g) + 1, lane: 0, type: 'pint' }]; step(g, .05);
-  assert.equal(g.pints, 1); assert.equal(g.fuel, 1); assert.equal(g.boost, 0);
-  assert(boost(g)); assert.equal(g.fuel, 0); assert(!boost(g));
+  assert.equal(g.pints, 1); assert.equal(g.fuel, 1); assert.equal(g.boost, 0); assert(!boost(g), 'one pint is not enough');
+  g.fuel = FUEL_PER_BOOST; assert(boost(g)); assert.equal(g.fuel, 0); assert(!boost(g), 'no spamming');
+  g.events = [{ z: carZ(g) + 1, lane: 0, type: 'pint' }]; step(g, .05); assert.equal(g.fuel, 0, 'pints during a boost do not refill');
 });
 test('jump clears a cow and a sheep but never a tractor', () => {
   assert(JUMP_APEX > CLEARANCE.cow && JUMP_APEX < CLEARANCE.tractor);
@@ -51,7 +52,7 @@ test('the side of a truck blocks a lane change on the ground', () => {
   assert.equal(surface(g, 1), DECK.blade); assert.equal(surface(g, 0), 0);
 });
 test('boost rams through livestock and tractors without damage', () => {
-  const g = clear(playing()); g.fuel = 1; boost(g);
+  const g = clear(playing()); g.fuel = FUEL_PER_BOOST; boost(g);
   g.events = ['cow', 'tractor', 'sheep'].map((type, i) => ({ z: carZ(g) + 2 + i * 5, lane: 0, type })); runFor(g, .5, 240);
   assert.equal(g.lives, 3); assert.equal(g.smashed, 3); assert(g.events.every(e => e.smashed));
 });
@@ -70,7 +71,7 @@ test('each neon gate adds speed for the rest of the run; rows tighten', () => {
   const zs = [...new Set(course().events.filter(e => !e.bonus).map(e => e.z))]; assert(zs.at(-1) - zs.at(-2) < zs[1] - zs[0]);
 });
 test('identical results at 30, 60 and 120 Hz', () => {
-  const results = [30, 60, 120].map(hz => { const g = clear(playing()); g.fuel = 1; boost(g); steer(g, 1); jump(g); runFor(g, 3, hz); return g; });
+  const results = [30, 60, 120].map(hz => { const g = clear(playing()); g.fuel = FUEL_PER_BOOST; boost(g); steer(g, 1); jump(g); runFor(g, 3, hz); return g; });
   for (const g of results) { assert(Math.abs(g.x - results[0].x) < 1e-9); assert(Math.abs(g.distance - results[0].distance) < 1e-6); assert(Math.abs(g.y - results[0].y) < 1e-9); }
 });
 test('trucks never sit in a safe lane and never split the safe path', () => {
@@ -87,16 +88,16 @@ test('trucks never sit in a safe lane and never split the safe path', () => {
 test('safe-lane autopilot finishes seeded courses without damage', () => {
   for (const seed of [1, 42, 1981, 2026, 4294967295]) {
     const g = playing(seed);
-    while (g.mode === 'playing' && g.time < 140) {
+    while (g.mode === 'playing' && g.time < 400) {
       const t = g.events.find(e => !e.done && e.type === 'pint' && !e.bonus);
       if (t) while (g.lane !== t.lane && steer(g, Math.sign(t.lane - g.lane)));
-      if (g.fuel) boost(g); step(g, 1 / 60);
+      boost(g); step(g, 1 / 60);
     }
     assert.equal(g.mode, 'won', `seed ${seed}`); assert.equal(g.lives, 3, `seed ${seed}`);
   }
 });
 test('pause freezes the run; invalid deltas cannot corrupt it', () => {
-  const g = clear(playing()); jump(g); g.fuel = 2; boost(g); g.mode = 'paused'; const snap = JSON.stringify(g);
+  const g = clear(playing()); jump(g); g.fuel = FUEL_PER_BOOST; boost(g); g.fuel = FUEL_PER_BOOST; g.mode = 'paused'; const snap = JSON.stringify(g);
   steer(g, 1); assert(!jump(g)); assert(!slam(g)); assert(!boost(g)); step(g, .05); assert.equal(JSON.stringify(g), snap);
   g.mode = 'playing'; const active = JSON.stringify(g); for (const dt of [-1, 0, NaN, Infinity]) step(g, dt); assert.equal(JSON.stringify(g), active);
 });
