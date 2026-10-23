@@ -273,6 +273,29 @@ export function createRenderer(canvas) {
   const runner = new THREE.Group(); runner.add(driver); scene.add(runner);
   const handPint = batchStatic(THREE, createPint(THREE)); handPint.scale.setScalar(.42); handPint.visible = false; driver.add(handPint);
   let winTime = 0, chugs = 0, lastChug = -1;
+  // Barrel of spare pints at his elbow, and a pool of glasses he lobs over his shoulder.
+  const pintKeg = new THREE.Group(); runner.add(pintKeg); pintKeg.position.set(.95, 0, -.05); pintKeg.visible = false;
+  { const wood = new THREE.MeshStandardMaterial({ color: '#7a4b34', roughness: .8, flatShading: true }), hoop = new THREE.MeshStandardMaterial({ color: '#2a2238', metalness: .4, roughness: .5 });
+    const b0 = new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, .9, 14), wood); b0.position.y = .45; b0.castShadow = true; pintKeg.add(b0);
+    const b1 = new THREE.Mesh(new THREE.CylinderGeometry(.4, .4, .5, 14), wood); b1.position.y = .45; pintKeg.add(b1);
+    for (const y of [.18, .72]) { const h = new THREE.Mesh(new THREE.CylinderGeometry(.37, .37, .05, 14), hoop); h.position.y = y; pintKeg.add(h); }
+    for (const [x, z] of [[-.13, .1], [.14, .08], [0, -.14]]) { const sp = batchStatic(THREE, createPint(THREE)); sp.scale.setScalar(.42); sp.position.set(x, .9, z); pintKeg.add(sp); } }
+  const thrown = Array.from({ length: 6 }, () => { const o = batchStatic(THREE, createPint(THREE)); o.scale.setScalar(.42); o.visible = false; scene.add(o); return { o, v: new THREE.Vector3(), spin: new THREE.Vector3(), live: false }; });
+  // Keyframes for one round: grab, raise, chug, wind up, lob, reach back. Positions are in his body frame.
+  const ROUND = 2.3;
+  const KEYS = [
+    { t: 0, p: [.86, 1.02, -.08], r: 0, ax: .35, az: .95, lean: 0, held: 1 },
+    { t: .2, p: [.36, .64, -.12], r: 0, ax: 0, az: 0, lean: 0, held: 1 },
+    { t: .38, p: [.06, 1.3, -.6], r: 1.95, ax: 2.05, az: -.55, lean: .32, held: 1 },
+    { t: 1.1, p: [.06, 1.32, -.6], r: 2.05, ax: 2.1, az: -.55, lean: .4, held: 1 },
+    { t: 1.36, p: [.34, 1.78, .2], r: 2.9, ax: 2.95, az: .25, lean: -.08, held: 1 },
+    { t: 1.46, p: [.34, 1.78, .2], r: 2.9, ax: 2.6, az: .25, lean: -.12, held: 0 },
+    { t: 1.75, p: [.36, .64, -.12], r: 0, ax: .5, az: .2, lean: 0, held: 0 },
+    { t: 2.3, p: [.86, 1.02, -.08], r: 0, ax: .35, az: .95, lean: 0, held: 0 },
+  ];
+  const pose = time => { let i = 0; while (i < KEYS.length - 2 && time > KEYS[i + 1].t) i++; const a = KEYS[i], b = KEYS[i + 1], k = smooth(time, a.t, b.t);
+    return { p: a.p.map((v, j) => lerp(v, b.p[j], k)), r: lerp(a.r, b.r, k), ax: lerp(a.ax, b.ax, k), az: lerp(a.az, b.az, k), lean: lerp(a.lean, b.lean, k), held: a.held }; };
+  const throwDir = new THREE.Vector3(), throwAt = new THREE.Vector3();
 
   const pub = batchStatic(THREE, createPub(THREE)); pub.rotation.y = Math.PI; pub.scale.setScalar(1.6); scene.add(pub); pub.visible = false;
 
@@ -498,26 +521,40 @@ export function createRenderer(canvas) {
     // Intro choreography: sprint, dive, slam, spool, launch.
     runner.visible = ready || (intro && t < 1.2) || won;
     seated.visible = !ready && !won && !(intro && t < 1.15);
-    handPint.visible = won;
     winTime = won ? winTime + dt : 0;
+    pintKeg.visible = won;
     if (won) {
-      // Out of the car and chugging pint after pint outside the Turbine Arms.
-      const cyc = 1.7, ph = (winTime % cyc) / cyc, n = Math.floor(winTime / cyc);
-      const raise = smooth(ph, .05, .28) * (1 - smooth(ph, .78, .95));
-      runner.position.set(-2.6, Math.abs(Math.sin(winTime * 9)) * .04 * (1 - raise), -9.5);
-      runner.rotation.set(0, Math.PI - .95 + Math.sin(winTime * .8) * .1, 0);
-      driver.scale.setScalar(1); driver.position.y = 0;
-      driver.rotation.set(raise * .32, 0, Math.sin(winTime * 5) * .04 * raise);
-      driver.userData.arms[1].rotation.x = 2.05 * raise; driver.userData.arms[1].rotation.z = -.55 * raise;
-      driver.userData.arms[0].rotation.x = Math.sin(winTime * 3) * .25 - raise * .4;
-      driver.userData.arms[0].rotation.z = raise * .5;
-      driver.userData.legs.forEach((l, i) => l.rotation.x = i ? Math.max(0, Math.sin(winTime * 9)) * .3 * (1 - raise) : 0);
-      // Glass held at his side, then tipped bottom-up with the rim at his mouth (never inside the head).
-      handPint.position.set(lerp(.36, .06, raise), lerp(.6, 1.3, raise), lerp(-.1, -.6, raise));
-      handPint.rotation.set(1.95 * raise, 0, 0);
-      if (n !== lastChug && winTime > .4) { lastChug = n; chugs++; const hp = new THREE.Vector3(); handPint.getWorldPosition(hp); for (let i = 0; i < 18; i++) fx.emit(hp.x, hp.y + .3, hp.z, (Math.random() - .5) * 3, 2 + Math.random() * 3, (Math.random() - .5) * 3, .6, .35, .05, '#fff6dc', '#ffcc4a', 2); }
+      // Out of the car outside the Turbine Arms: grab a pint, sink it, lob the empty over his shoulder, repeat.
+      const tt = winTime % ROUND, n = Math.floor(winTime / ROUND), q = pose(tt);
+      runner.position.set(-2.6, 0, -9.5);
+      runner.rotation.set(0, Math.PI - .95 + Math.sin(winTime * .8) * .08, 0);
+      driver.scale.setScalar(1); driver.position.y = Math.abs(Math.sin(winTime * 7)) * .03 * (q.lean < .1 ? 1 : 0);
+      driver.rotation.set(q.lean, 0, Math.sin(winTime * 5) * .04 * Math.max(0, q.lean));
+      driver.userData.arms[1].rotation.x = q.ax; driver.userData.arms[1].rotation.z = q.az;
+      driver.userData.arms[0].rotation.x = Math.sin(winTime * 3) * .25 - q.lean; driver.userData.arms[0].rotation.z = q.lean * 1.2;
+      driver.userData.legs.forEach((l, i) => l.rotation.x = i ? Math.max(0, Math.sin(winTime * 7)) * .25 : 0);
+      handPint.visible = !!q.held; handPint.position.set(...q.p); handPint.rotation.set(q.r, 0, 0);
+      if (n !== lastChug && tt > 1.46) {
+        // Release: the empty flies back over his shoulder, spinning.
+        lastChug = n; chugs++;
+        const slot = thrown.find(x => !x.live) || thrown[0];
+        handPint.getWorldPosition(throwAt); throwDir.set(.9 + Math.random() * .8, 5.2 + Math.random(), 3.6 + Math.random()).applyQuaternion(runner.quaternion);
+        slot.o.position.copy(throwAt); slot.o.rotation.set(2.9, 0, 0); slot.v.copy(throwDir); slot.spin.set(9 + Math.random() * 6, Math.random() * 4, (Math.random() - .5) * 6); slot.live = true; slot.o.visible = true;
+        cues.push('flip');
+      }
+      if (n !== lastChug && tt < 1.46 && tt > .3 && tt < .45 && !q.foam) { const hp = new THREE.Vector3(); handPint.getWorldPosition(hp); if (Math.random() < .3) fx.emit(hp.x, hp.y + .2, hp.z, (Math.random() - .5), 1, (Math.random() - .5), .4, .25, .05, '#fff6dc', '#ffcc4a', 2); }
       if (Math.random() < dt * 14) { const c = ['#19ff8c', '#ffffff', '#ff8a1f'][Math.floor(Math.random() * 3)]; fx.emit(-4 + Math.random() * 8, 6 + Math.random() * 2, -14 + Math.random() * 6, (Math.random() - .5) * 2, -1.5, 0, 2.4, .35, .25, c, c, .3, -.6); }
-    } else { lastChug = -1; chugs = 0; }
+    } else { lastChug = -1; chugs = 0; handPint.visible = false; }
+    for (const x of thrown) {
+      if (!x.live) continue;
+      x.v.y -= 22 * dt; x.o.position.addScaledVector(x.v, dt); x.o.rotation.x += x.spin.x * dt; x.o.rotation.y += x.spin.y * dt; x.o.rotation.z += x.spin.z * dt;
+      if (x.o.position.y <= .05 && x.v.y < 0) {
+        // Smash on the road: glass shards and a splash of stout dregs.
+        x.live = false; x.o.visible = false; cues.push('smash');
+        for (let i = 0; i < 34; i++) fx.emit(x.o.position.x, .15, x.o.position.z, (Math.random() - .5) * 7, 1.5 + Math.random() * 4, (Math.random() - .5) * 7, .55, .22, .04, i % 3 ? '#e8fbff' : '#ffcc4a', '#9fdfff', 1.8);
+        for (let i = 0; i < 8; i++) smoke.emit(x.o.position.x, .1, x.o.position.z, (Math.random() - .5) * 3, .4, (Math.random() - .5) * 3, .6, .3, .9, '#3a1d12', '#1a0b08', 3, 0, true);
+      }
+    }
     if (ready) {
       runner.position.set(-4.2, 0, 1.6); runner.rotation.set(0, -Math.PI / 2 + Math.sin(elapsed * .8) * .3, 0);
       driver.rotation.set(0, 0, Math.sin(elapsed * 2.2) * .06); driver.position.y = Math.abs(Math.sin(elapsed * 4.4)) * .05;
