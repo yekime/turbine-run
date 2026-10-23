@@ -61,9 +61,9 @@ function particles(max, blending) {
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   geo.setAttribute('size', new THREE.BufferAttribute(size, 1)); geo.setAttribute('alpha', new THREE.BufferAttribute(alpha, 1));
   const material = new THREE.ShaderMaterial({
-    uniforms: { uScale: { value: 400 } }, transparent: true, depthWrite: false, blending,
-    vertexShader: `attribute float size; attribute float alpha; attribute vec3 color; varying vec3 vColor; varying float vAlpha; uniform float uScale;
-      void main(){ vColor = color; vec4 mv = modelViewMatrix * vec4(position, 1.0); vAlpha = alpha * smoothstep(2.5, 6.5, -mv.z); gl_PointSize = size * uScale / max(.5, -mv.z); gl_Position = projectionMatrix * mv; }`,
+    uniforms: { uScale: { value: 400 }, uBend: BEND }, transparent: true, depthWrite: false, blending,
+    vertexShader: `attribute float size; attribute float alpha; attribute vec3 color; varying vec3 vColor; varying float vAlpha; uniform float uScale; uniform vec3 uBend;
+      void main(){ vColor = color; vec4 w = modelMatrix * vec4(position, 1.0); float d = min(0.0, w.z - uBend.z); w.y -= uBend.x * d * d; w.x += uBend.y * d * d; vec4 mv = viewMatrix * w; vAlpha = alpha * smoothstep(2.5, 6.5, -mv.z); gl_PointSize = size * uScale / max(.5, -mv.z); gl_Position = projectionMatrix * mv; }`,
     fragmentShader: `varying vec3 vColor; varying float vAlpha; void main(){ vec2 p = gl_PointCoord - .5; float d = length(p); if (d > .5) discard; float a = smoothstep(.5, .0, d); gl_FragColor = vec4(vColor, a * a * vAlpha * .5); }`
   });
   const points = new THREE.Points(geo, material); points.frustumCulled = false;
@@ -277,6 +277,7 @@ export function createRenderer(canvas) {
   const SIZE = { cow: 1.55, sheep: 1.15, goat: 1.1, pint: 1.25 };
   const events = new Map(); let eventSource = null; const trucks = new Map();
   const pintHalo = radial('rgba(255,220,120,1)', 'rgba(255,160,40,0)');
+  const haloGeo = new THREE.PlaneGeometry(2.4, 2.4), haloMat = new THREE.MeshBasicMaterial({ map: pintHalo, color: new THREE.Color(2, 1.5, .6), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false });
 
   // Composer: bloom makes the neon actually glow.
   const composer = new EffectComposer(renderer);
@@ -292,7 +293,7 @@ export function createRenderer(canvas) {
     fx.material.uniforms.uScale.value = smoke.material.uniforms.uScale.value = height * ratio * .55;
   }
   resize();
-  function release(object) { object.traverse(child => { child.geometry?.dispose(); }); scene.remove(object); }
+  function release(object) { object.traverse(child => { if (child.geometry !== haloGeo) child.geometry?.dispose(); }); scene.remove(object); }
 
   // State that lives across frames.
   let elapsed = 0, previousJump = false, landing = 0, previousPints = 0, previousHits = 0, ringAge = 9, shockAge = 9, trauma = 0;
@@ -380,7 +381,7 @@ export function createRenderer(canvas) {
       if (!entry) {
         const object = batchStatic(THREE, (builders[e.type] || createSheep)(THREE)); scene.add(object);
         entry = { object, phase: noise(e.z) * 6, fly: null, tip: null }; object.scale.setScalar(SIZE[e.type] || 1); if (e.type === 'cow' || e.type === 'goat') object.rotation.y = (noise(e.z + 3) - .5) * .8;
-        if (e.type === 'pint') { const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: pintHalo, color: new THREE.Color(2, 1.5, .6), blending: add2, depthWrite: false, transparent: true })); halo.scale.setScalar(2.4); halo.position.y = .55; object.add(halo); }
+        if (e.type === 'pint') { const halo = new THREE.Mesh(haloGeo, haloMat); halo.position.y = .55; object.add(halo); entry.halo = halo; }
         events.set(e, entry);
       }
       const o = entry.object;
@@ -399,7 +400,7 @@ export function createRenderer(canvas) {
         o.position.set(f.x, f.y, f.z); o.rotation.x += f.sx * dt; o.rotation.z += f.sz * dt; continue;
       }
       o.position.set(e.lane * LANE, 0, -ahead);
-      if (e.type === 'pint') { if (e.collected) { o.visible = false; continue; } o.rotation.y = elapsed * 2.4; o.position.y = (e.y || .5) + Math.sin(elapsed * 4 + e.z) * .18; }
+      if (e.type === 'pint') { if (e.collected) { o.visible = false; continue; } o.rotation.y = elapsed * 2.4; if (entry.halo) entry.halo.rotation.y = -o.rotation.y; o.position.y = (e.y || .5) + Math.sin(elapsed * 4 + e.z) * .18; }
       else if (e.type === 'tractor') { o.position.y = Math.abs(Math.sin(elapsed * 9 + entry.phase)) * .06; o.rotation.z = Math.sin(elapsed * 7 + entry.phase) * .025; if (Math.random() < dt * 6) smoke.emit(o.position.x + .38, 2.3, o.position.z - .7, 0, 1.2, 0, 1.2, .5, 1.6, '#cfc3e8', '#7b6aa8', .6, .8); }
       else { o.position.y = Math.abs(Math.sin(elapsed * (e.type === 'sheep' ? 7 : 4.5) + entry.phase)) * (e.type === 'sheep' ? .22 : .08); o.rotation.y = Math.sin(elapsed * 1.6 + entry.phase) * .25; }
     }
